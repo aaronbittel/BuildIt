@@ -129,10 +129,10 @@
 </main>
 
 <style>
-	:global(html, body) {
-		height: 100%;
+	:global(*) {
 		margin: 0;
 		padding: 0;
+		box-sizing: border-box;
 	}
 
 	:global(body) {
@@ -176,9 +176,7 @@
 	.column {
 		display: flex;
 		flex-direction: column;
-		background-color: #2a2a3d;
 		align-items: center;
-		outline: 2px solid #a0a0c0;
 		border-radius: 0.3em;
 		padding: 1em 0em;
 	}
@@ -186,7 +184,7 @@
 	.column-title {
 		font-size: 2em;
 		font-weight: bold;
-		margin: 0.4em 0em 1em 0em;
+		margin: 0.4em 0 1em;
 		border-bottom: 2px solid #7f7faf;
 		letter-spacing: 1px;
 		text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
@@ -198,16 +196,15 @@
 	.column-items {
 		display: flex;
 		flex-direction: column;
-		align-items: stretch;
+		width: 100%;
 		gap: 1em;
-		padding: 0 1em 0.7em 1em;
 		list-style: none;
-		margin: 0;
+		padding: 0.7em;
 	}
 
 	.column-item {
 		text-align: center;
-		padding: 0.5em 0.7em;
+		padding: 0.5em 0;
 		border: 2px solid #7f7faf;
 		border-radius: 0.5em;
 		cursor: grab;
