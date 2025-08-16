@@ -7,24 +7,29 @@ export const load: PageLoad = () => {
             key: 'backlog',
             title: 'Backlog',
             items: [
-                'add button for creating new tasks',
+                'extract columns into a Component',
                 'add more metadata to the tasks',
                 'Order of item depends on drag position',
                 'create a backend',
             ],
-            isDragover: false
+            isDragover: false,
+            showAddButton: true,
         },
         {
             key: 'in_progress',
             title: 'In Progress',
-            items: [],
-            isDragover: false
+            items: [
+                'add button for creating new tasks',
+            ],
+            isDragover: false,
+            showAddButton: true,
         },
         {
             key: 'done',
             title: 'Done',
             items: [],
-            isDragover: false
+            isDragover: false,
+            showAddButton: true,
         }
     ];
 
