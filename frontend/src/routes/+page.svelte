@@ -81,7 +81,7 @@
 </script>
 
 {#snippet make_column(column: Column)}
-	<div
+	<section
 		class="column"
 		role="list"
 		ondragover={(e) => e.preventDefault()}
@@ -100,20 +100,20 @@
 		}}
 		class:drag-over={column.isDragover}
 	>
-		<div class="column-title">{column.title}</div>
-		<div class="column-items">
+		<h2 class="column-title">{column.title}</h2>
+		<ul class="column-items">
 			{#each column.items as item}
-				<div
+				<li
 					class="column-item"
 					role="listitem"
 					draggable="true"
 					ondragstart={(e) => handleDragStart(e, item, column.key)}
 				>
 					{item}
-				</div>
+				</li>
 			{/each}
-		</div>
-	</div>
+		</ul>
+	</section>
 {/snippet}
 
 <header>
@@ -200,20 +200,20 @@
 		flex-direction: column;
 		align-items: stretch;
 		gap: 1em;
-		padding-bottom: 0.7em;
+		padding: 0 1em 0.7em 1em;
+		list-style: none;
+		margin: 0;
 	}
 
 	.column-item {
 		text-align: center;
-		flex: 1 1 auto;
 		padding: 0.5em 0.7em;
 		border: 2px solid #7f7faf;
 		border-radius: 0.5em;
-		margin: 0em 1em;
+		cursor: grab;
 	}
 
 	.column-item:hover {
-		cursor: grab;
 		background-color: #5a5ab0;
 	}
 
