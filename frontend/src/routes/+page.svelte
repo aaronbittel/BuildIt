@@ -80,10 +80,6 @@
 	}
 </script>
 
-<header>
-	<h1>My Board</h1>
-</header>
-
 {#snippet make_column(column: Column)}
 	<div
 		class="column"
@@ -120,11 +116,17 @@
 	</div>
 {/snippet}
 
-<div class="board">
-	{#each columns as column}
-		{@render make_column(column)}
-	{/each}
-</div>
+<header>
+	<h1>My Board</h1>
+</header>
+
+<main>
+	<div class="board">
+		{#each columns as column}
+			{@render make_column(column)}
+		{/each}
+	</div>
+</main>
 
 <style>
 	:global(html, body) {
@@ -145,13 +147,30 @@
 		justify-content: center;
 		align-items: center;
 		height: 100px;
+		margin-bottom: 2em;
+	}
+
+	main {
+		display: grid;
+		grid-template-columns: 7% 1fr 7%;
+		grid-template-areas: '. board .';
 	}
 
 	.board {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
-		gap: 1em;
-		padding: 1em;
+		gap: 4em;
+		grid-area: board;
+	}
+
+	@media (max-width: 1200px) {
+		main {
+			grid-template-columns: 3% 1fr 3%;
+		}
+
+		.board {
+			gap: 2em;
+		}
 	}
 
 	.column {
@@ -161,6 +180,7 @@
 		align-items: center;
 		outline: 2px solid #a0a0c0;
 		border-radius: 0.3em;
+		padding: 1em 0em;
 	}
 
 	.column-title {
