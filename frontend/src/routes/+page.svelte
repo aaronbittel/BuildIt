@@ -1,43 +1,9 @@
 <script lang="ts">
-	type Column = {
-		key: string;
-		title: string;
-		items: string[];
-		isDragover: boolean;
-	};
+	import type { Column } from '$lib/types/board.ts';
+	import type { PageProps } from './$types';
 
-	let columns: Column[] = $state([
-		{
-			key: 'backlog',
-			title: 'Backlog',
-			items: [
-				'Order of item depends on drag position',
-				'create a backend',
-				'move the title out from the item-columns',
-				'add more metadata to the tasks',
-				'add button for creating new tasks'
-			],
-			isDragover: false
-		},
-		{
-			key: 'in_progress',
-			title: 'In Progress',
-			items: ['styling', 'learning css and html things', 'first time using typescript'],
-			isDragover: false
-		},
-		{
-			key: 'done',
-			title: 'Done',
-			items: [
-				'first setup for the page',
-				'setting up nvim for svelte and typescript',
-				'kinda working board',
-				'items are draggable between columns',
-				'nice visual'
-			],
-			isDragover: false
-		}
-	]);
+	let { data }: PageProps = $props();
+	let columns = $state(data.columns);
 
 	function handleDragStart(event: DragEvent, itemName: string, sourceKey: string) {
 		event.dataTransfer?.setData(
