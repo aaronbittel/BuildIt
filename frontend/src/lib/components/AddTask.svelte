@@ -17,11 +17,19 @@
 		showTaskInput = false;
 		newTaskText = '';
 	}
+
+	function handleEnter(event: KeyboardEvent) {
+		if (event.key === 'Enter' && !event.shiftKey) {
+			event.preventDefault(); // prevent newline
+			handleAddTaskClick();
+		}
+	}
 </script>
 
 {#if showTaskInput}
 	<div class="add-task">
-		<textarea bind:value={newTaskText} placeholder="New task"></textarea>
+		<textarea bind:value={newTaskText} placeholder="New task" onkeydown={(e) => handleEnter(e)}
+		></textarea>
 	</div>
 {/if}
 <button class="btn-add-card" onclick={() => handleAddTaskClick()}>
