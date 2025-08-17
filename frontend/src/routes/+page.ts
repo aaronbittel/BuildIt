@@ -1,8 +1,8 @@
-import type { Column } from "$lib/types/board";
+import type { ColumnType } from "$lib/types";
 import type { PageLoad } from "./$types";
 
 export const load: PageLoad = () => {
-    const columns: Column[] = [
+    const columns: ColumnType[] = [
         {
             key: 'backlog',
             title: 'Backlog',
@@ -12,8 +12,6 @@ export const load: PageLoad = () => {
                 'Order of item depends on drag position',
                 'create a backend',
             ],
-            isDragover: false,
-            showAddButton: true,
         },
         {
             key: 'in_progress',
@@ -21,15 +19,11 @@ export const load: PageLoad = () => {
             items: [
                 'add button for creating new tasks',
             ],
-            isDragover: false,
-            showAddButton: true,
         },
         {
             key: 'done',
             title: 'Done',
             items: [],
-            isDragover: false,
-            showAddButton: true,
         }
     ];
 
