@@ -11,6 +11,7 @@
 	let isDragover = $state(false);
 
 	const { column, onDrop, onAddItem }: Props = $props();
+	const titleLabel: string = column.title.charAt(0).toUpperCase();
 
 	function handleDragStart(event: DragEvent, itemName: string, sourceKey: string) {
 		event.dataTransfer?.setData(
@@ -60,7 +61,10 @@
 		}
 	}}
 >
-	<h2 class="column-title">{column.title}</h2>
+	<h2 class="column-title">
+		{column.title}
+		<span class="corner-label">{titleLabel}</span>
+	</h2>
 	<ul class="column-items">
 		{#each column.items as item}
 			<li
@@ -72,7 +76,7 @@
 				{item}
 			</li>
 		{/each}
-		<AddTask {onAddItem} />
+		<AddTask {titleLabel} {onAddItem} />
 	</ul>
 </section>
 
@@ -97,6 +101,16 @@
 		border-radius: 0.2em;
 		display: flex;
 		justify-content: center;
+		position: relative;
+	}
+
+	.corner-label {
+		position: absolute;
+		top: -0.3em;
+		right: -0.3em;
+		font-size: 0.5em;
+		font-weight: bold;
+		color: #fff;
 	}
 
 	.column-items {
@@ -115,6 +129,7 @@
 		border: 2px solid #7f7faf;
 		border-radius: 0.5em;
 		cursor: grab;
+		overflow-wrap: anywhere;
 	}
 
 	.column-item:hover {

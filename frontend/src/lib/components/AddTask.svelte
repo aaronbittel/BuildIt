@@ -1,34 +1,61 @@
 <script lang="ts">
+	import { tick } from 'svelte';
+
 	let newTaskText: string = $state('');
 	let showTaskInput: boolean = $state(false);
 
 	type Props = {
+		titleLabel: string;
 		onAddItem: (itemName: string) => void;
 	};
 
-	const { onAddItem }: Props = $props();
+	const { titleLabel, onAddItem }: Props = $props();
 
 	function handleAddTaskClick() {
 		showTaskInput = !showTaskInput;
 		if (newTaskText === '') return;
 
 		onAddItem(newTaskText);
+		resetTextArea();
+	}
 
-		showTaskInput = false;
-		newTaskText = '';
+	async function handleKeydown(event: KeyboardEvent) {
+		if (event.ctrlKey && event.key.toUpperCase() === titleLabel) {
+			event.preventDefault();
+			showTaskInput = !showTaskInput;
+
+			await tick();
+			document.getElementById(`${titleLabel}-textarea`)?.focus();
+		}
 	}
 
 	function handleEnter(event: KeyboardEvent) {
 		if (event.key === 'Enter' && !event.shiftKey) {
 			event.preventDefault(); // prevent newline
 			handleAddTaskClick();
+			return;
 		}
+		if (event.key === 'Escape') {
+			resetTextArea();
+			return;
+		}
+	}
+
+	function resetTextArea() {
+		showTaskInput = false;
+		newTaskText = '';
 	}
 </script>
 
+<svelte:window onkeydown={handleKeydown} />
+
 {#if showTaskInput}
 	<div class="add-task">
-		<textarea bind:value={newTaskText} placeholder="New task" onkeydown={(e) => handleEnter(e)}
+		<textarea
+			id={`${titleLabel}-textarea`}
+			bind:value={newTaskText}
+			placeholder="New task"
+			onkeydown={(e) => handleEnter(e)}
 		></textarea>
 	</div>
 {/if}

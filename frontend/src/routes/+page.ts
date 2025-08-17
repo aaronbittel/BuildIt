@@ -21,9 +21,7 @@ export const load: PageLoad = () => {
         {
             key: 'done',
             title: 'Done',
-            items: [
-                'add button for creating new tasks',
-            ],
+            items: [],
         }
     ];
 
