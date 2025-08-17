@@ -1,24 +1,16 @@
 <script lang="ts">
 	import type { ColumnType } from '$lib/types';
+	import AddTask from './AddTask.svelte';
 
 	type Props = {
 		column: ColumnType;
 		onDrop: (itemName: string, sourceKey: string, targetKey: string) => void;
+		onAddItem: (itemName: string) => void;
 	};
 
 	let isDragover = $state(false);
 
-	const { column, onDrop }: Props = $props();
-
-	// let newTaskText = $state('');
-
-	// function hideAddButton(column: ColumnType) {
-	// 	column.showAddButton = false;
-	// }
-	//
-	// function showAddButton(column: ColumnType) {
-	// 	column.showAddButton = true;
-	// }
+	const { column, onDrop, onAddItem }: Props = $props();
 
 	function handleDragStart(event: DragEvent, itemName: string, sourceKey: string) {
 		event.dataTransfer?.setData(
@@ -80,6 +72,7 @@
 				{item}
 			</li>
 		{/each}
+		<AddTask {onAddItem} />
 	</ul>
 </section>
 
@@ -89,7 +82,7 @@
 		flex-direction: column;
 		align-items: center;
 		width: 100%;
-		padding: 0.7em;
+		padding: 0.3em;
 	}
 
 	.column-title {
@@ -108,16 +101,12 @@
 
 	.column-items {
 		width: 100%;
+		min-height: 15em;
 		display: flex;
 		flex-direction: column;
 		gap: 1em;
 		list-style: none;
 		margin: 1em 0 0 0;
-	}
-
-	/* if the column is empty, keep the 'add'-btn higher up*/
-	.column-items li:last-of-type {
-		margin-bottom: 1em;
 	}
 
 	.column-item {

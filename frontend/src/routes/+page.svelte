@@ -16,6 +16,11 @@
 			target.items.push(itemName);
 		}
 	}
+
+	function addItem(columnKey: string, itemName: string) {
+		const column = columns.find((c) => c.key === columnKey);
+		if (column) column.items.push(itemName);
+	}
 </script>
 
 <header>
@@ -25,7 +30,7 @@
 <main>
 	<div class="board">
 		{#each columns as column}
-			<Column {column} {onDrop} />
+			<Column {column} {onDrop} onAddItem={(newItem: string) => addItem(column.key, newItem)} />
 		{/each}
 	</div>
 </main>
