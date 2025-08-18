@@ -52,16 +52,19 @@ Task_T = Table("task")
 
 
 def fetch_stages_with_tasks(cur: Cursor) -> list[StageDetail]:
-    stages_query = Stage_T.select("*").get_sql()
+    cur.execute(Stage_T.select("*").get_sql())
+    stages = [StagePublic.from_row(row) for row in cur.fetchall()]
 
-    stages = [StageDetail.from_row(row) for row in cur.execute(stages_query).fetchall()]
+    stage_details: list[StageDetail] = []
     for stage in stages:
-        task_query = Task_T.select("*").where(Task_T.stage_id == stage.id).get_sql()
-        stage.tasks.extend(
-            [TaskPublic.from_row(row) for row in cur.execute(task_query).fetchall()]
+        cur.execute(Task_T.select("*").where(Task_T.stage_id == stage.id).get_sql())
+        stage_details.append(
+            StageDetail(
+                **stage.model_dump(),
+                tasks=[TaskPublic.from_row(row) for row in cur.fetchall()],
+            )
         )
-
-    return stages
+    return stage_details
 
 
 def fetch_all_stages(cur: Cursor) -> list[StagePublic]:
