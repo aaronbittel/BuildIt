@@ -26,13 +26,23 @@ CREATE TABLE task (
     FOREIGN KEY (stage_id) REFERENCES stage(id)
 );
 
+CREATE TABLE task_order (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stage_id INTEGER NOT NULL,
+    task_id INTEGER NOT NULL,
+    pos REAL NOT NULL DEFAULT 0,
+    FOREIGN KEY (stage_id) REFERENCES stage(id),
+    FOREIGN KEY (task_id) REFERENCES task(id)
+);
+
 INSERT INTO stage (name) VALUES ('Backlog'), ('In Progress'), ('Done');
 
 INSERT INTO task (name, stage_id)
 VALUES
+('Create table that stores stage_id to item ordering', 2),
+('Order of item depends on drag position', 3),
 ('add more metadata to the tasks', 1),
-('Order of item depends on drag position', 1),
-('create a backend', 3);
+('reording of tasks via drag and drop in the frontend', 3)
 """
 
 

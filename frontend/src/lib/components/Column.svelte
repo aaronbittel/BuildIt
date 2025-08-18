@@ -4,10 +4,11 @@
 
 	type Props = {
 		stage: StageResponse;
-		onDrop: (task: TaskResponse, sourceID: number, targetID: number) => void;
+		onDrop: (task: TaskResponse, sourceID: number, targetID: number, toIndex: number) => void;
 		onAddItem: (taskName: string) => void;
 	};
 
+	let container = $state<HTMLElement | null>(null);
 	let isDragover = $state(false);
 
 	const { stage: stage, onDrop, onAddItem }: Props = $props();
@@ -22,12 +23,22 @@
 
 	function handleDropEvent(event: DragEvent) {
 		event.preventDefault();
+
+		if (!container) return;
+		const taskElements = container.querySelectorAll<HTMLElement>('.stage-task');
+		const heights = Array.from(taskElements).map((item) => item.offsetTop);
+
+		let i = 0;
+		for (; i < heights.length; i++) {
+			if (heights[i] >= event.clientY) {
+				break;
+			}
+		}
+
 		const raw = event.dataTransfer?.getData('application/json');
 		if (!raw) return;
 		const { task: task, sourceID: sourceID } = JSON.parse(raw);
-		if (sourceID === stage.id) return;
-
-		onDrop(task, sourceID, stage.id);
+		onDrop(task, sourceID, stage.id, i);
 	}
 
 	function isHovering(event: DragEvent) {
@@ -41,6 +52,7 @@
 </script>
 
 <section
+	bind:this={container}
 	class="stage"
 	role="list"
 	class:drag-over={isDragover}

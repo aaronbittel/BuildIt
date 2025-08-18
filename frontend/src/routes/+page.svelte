@@ -1,25 +1,33 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
-	import type { TaskResponse } from '$lib/types';
+	import type { StageResponse, TaskResponse } from '$lib/types';
 	import { updateTaskRequest, addTaskRequest, resetDB } from '$lib/api';
 	import Column from '$lib/components/Column.svelte';
 
 	let { data }: PageProps = $props();
 	let stages = $state(data.stages);
 
-	async function onDrop(draggedTask: TaskResponse, sourceID: number, targetID: number) {
-		if (sourceID === targetID) return;
-
+	async function onDrop(
+		draggedTask: TaskResponse,
+		sourceID: number,
+		targetID: number,
+		toIndex: number
+	) {
 		const source = stages.find((c) => c.id === sourceID);
 		const target = stages.find((c) => c.id === targetID);
 
 		if (!source || !target) return;
-		if (source.id === target.id) return;
+
+		if (source.id === target.id) {
+			reorderTasks(source, draggedTask, toIndex);
+			return;
+		}
 
 		try {
 			const updatedTask = await updateTaskRequest(draggedTask.id, { stage_id: target.id });
 			source.tasks = source.tasks.filter((task: TaskResponse) => task.id !== draggedTask.id);
 			target.tasks.push(updatedTask);
+			reorderTasks(target, updatedTask, toIndex);
 		} catch (err) {
 			console.error(err);
 		}
@@ -40,6 +48,12 @@
 			event.preventDefault();
 			stages = await resetDB();
 		}
+	}
+
+	function reorderTasks(source: StageResponse, draggedTask: TaskResponse, toIndex: number) {
+		const fromIndex = source.tasks.findIndex((t) => t.id === draggedTask.id);
+		const [task] = source.tasks.splice(fromIndex, 1);
+		source.tasks.splice(toIndex, 0, task);
 	}
 </script>
 
