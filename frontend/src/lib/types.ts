@@ -1,7 +1,13 @@
-type ColumnType = {
-    key: string;
-    title: string;
-    items: string[];
+type TaskResponse = {
+    id: number,
+    name: string,
+    stage_id: number,
 };
 
-export type { ColumnType }
+type StageResponse = {
+    id: number,
+    name: string,
+    tasks: TaskResponse[],
+};
+
+export type { TaskResponse, StageResponse }

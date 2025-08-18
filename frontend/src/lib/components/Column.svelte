@@ -1,22 +1,22 @@
 <script lang="ts">
-	import type { ColumnType } from '$lib/types';
 	import AddTask from './AddTask.svelte';
+	import type { StageResponse, TaskResponse } from '$lib/types';
 
 	type Props = {
-		column: ColumnType;
-		onDrop: (itemName: string, sourceKey: string, targetKey: string) => void;
-		onAddItem: (itemName: string) => void;
+		stage: StageResponse;
+		onDrop: (task: TaskResponse, sourceID: number, targetID: number) => void;
+		onAddItem: (taskName: string) => void;
 	};
 
 	let isDragover = $state(false);
 
-	const { column, onDrop, onAddItem }: Props = $props();
-	const titleLabel: string = column.title.charAt(0).toUpperCase();
+	const { stage: stage, onDrop, onAddItem }: Props = $props();
+	const nameLabel: string = stage.name.charAt(0).toUpperCase();
 
-	function handleDragStart(event: DragEvent, itemName: string, sourceKey: string) {
+	function handleDragStart(event: DragEvent, task: TaskResponse, sourceID: number) {
 		event.dataTransfer?.setData(
 			'application/json',
-			JSON.stringify({ itemName: itemName, sourceKey: sourceKey })
+			JSON.stringify({ task: task, sourceID: sourceID })
 		);
 	}
 
@@ -24,10 +24,10 @@
 		event.preventDefault();
 		const raw = event.dataTransfer?.getData('application/json');
 		if (!raw) return;
-		const { itemName: itemName, sourceKey: sourceKey } = JSON.parse(raw);
-		if (sourceKey === column.key) return;
+		const { task: task, sourceID: sourceID } = JSON.parse(raw);
+		if (sourceID === stage.id) return;
 
-		onDrop(itemName, sourceKey, column.key);
+		onDrop(task, sourceID, stage.id);
 	}
 
 	function isHovering(event: DragEvent) {
@@ -41,7 +41,7 @@
 </script>
 
 <section
-	class="column"
+	class="stage"
 	role="list"
 	class:drag-over={isDragover}
 	ondragover={(e) => {
@@ -61,27 +61,27 @@
 		}
 	}}
 >
-	<h2 class="column-title">
-		{column.title}
-		<span class="corner-label">{titleLabel}</span>
+	<h2 class="stage-name">
+		{stage.name}
+		<span class="corner-label">{nameLabel}</span>
 	</h2>
-	<ul class="column-items">
-		{#each column.items as item}
+	<ul class="stage-tasks">
+		{#each stage.tasks as task}
 			<li
-				class="column-item"
+				class="stage-task"
 				role="listitem"
 				draggable="true"
-				ondragstart={(e) => handleDragStart(e, item, column.key)}
+				ondragstart={(e) => handleDragStart(e, task, stage.id)}
 			>
-				{item}
+				{task.name}
 			</li>
 		{/each}
-		<AddTask {titleLabel} {onAddItem} />
+		<AddTask {nameLabel} {onAddItem} />
 	</ul>
 </section>
 
 <style>
-	.column {
+	.stage {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -89,7 +89,7 @@
 		padding: 0.3em;
 	}
 
-	.column-title {
+	.stage-name {
 		width: 100%;
 		font-size: 2em;
 		font-weight: bold;
@@ -113,7 +113,7 @@
 		color: #fff;
 	}
 
-	.column-items {
+	.stage-tasks {
 		width: 100%;
 		min-height: 15em;
 		display: flex;
@@ -123,7 +123,7 @@
 		margin: 1em 0 0 0;
 	}
 
-	.column-item {
+	.stage-task {
 		text-align: center;
 		padding: 0.5em;
 		border: 2px solid #7f7faf;
@@ -132,15 +132,15 @@
 		overflow-wrap: anywhere;
 	}
 
-	.column-item:hover {
+	.stage-task:hover {
 		background-color: #5a5ab0;
 	}
 
-	.column-item:active {
+	.stage-task:active {
 		cursor: grabbing;
 	}
 
-	.column.drag-over {
+	.stage.drag-over {
 		background-color: rgba(90, 90, 176, 0.3);
 	}
 </style>

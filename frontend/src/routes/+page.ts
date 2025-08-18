@@ -1,29 +1,8 @@
-import type { ColumnType } from "$lib/types";
+import type { StageResponse } from "$lib/types";
 import type { PageLoad } from "./$types";
 
-export const load: PageLoad = () => {
-    const columns: ColumnType[] = [
-        {
-            key: 'backlog',
-            title: 'Backlog',
-            items: [
-                'add more metadata to the tasks',
-                'Order of item depends on drag position',
-                'create a backend',
-            ],
-        },
-        {
-            key: 'in_progress',
-            title: 'In Progress',
-            items: [
-            ],
-        },
-        {
-            key: 'done',
-            title: 'Done',
-            items: [],
-        }
-    ];
-
-    return { columns };
+export const load: PageLoad = async ({ fetch }) => {
+    const response = await fetch("http://localhost:8000/stages/tasks");
+    const stages: StageResponse[] = await response.json();
+    return { stages };
 }

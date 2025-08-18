@@ -1,27 +1,49 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
+	import type { TaskResponse } from '$lib/types';
+	import { updateTaskRequest, addTaskRequest, resetDB } from '$lib/api';
 	import Column from '$lib/components/Column.svelte';
 
 	let { data }: PageProps = $props();
-	let columns = $state(data.columns);
+	let stages = $state(data.stages);
 
-	function onDrop(itemName: string, sourceKey: string, targetKey: string) {
-		if (sourceKey === targetKey) return;
+	async function onDrop(draggedTask: TaskResponse, sourceID: number, targetID: number) {
+		if (sourceID === targetID) return;
 
-		const source = columns.find((c) => c.key === sourceKey);
-		const target = columns.find((c) => c.key === targetKey);
+		const source = stages.find((c) => c.id === sourceID);
+		const target = stages.find((c) => c.id === targetID);
 
-		if (source && target) {
-			source.items = source.items.filter((item: string) => item !== itemName);
-			target.items.push(itemName);
+		if (!source || !target) return;
+		if (source.id === target.id) return;
+
+		try {
+			const updatedTask = await updateTaskRequest(draggedTask.id, { stage_id: target.id });
+			source.tasks = source.tasks.filter((task: TaskResponse) => task.id !== draggedTask.id);
+			target.tasks.push(updatedTask);
+		} catch (err) {
+			console.error(err);
 		}
 	}
 
-	function addItem(columnKey: string, itemName: string) {
-		const column = columns.find((c) => c.key === columnKey);
-		if (column) column.items.push(itemName);
+	async function addItem(stageID: number, taskName: string) {
+		const stage = stages.find((s) => s.id === stageID);
+		if (!stage) return;
+
+		const newTask = await addTaskRequest(stageID, taskName);
+		if (!newTask) return;
+
+		stage.tasks.push(newTask);
+	}
+
+	async function onkeydown(event: KeyboardEvent) {
+		if (event.ctrlKey && event.key == 'r') {
+			event.preventDefault();
+			stages = await resetDB();
+		}
 	}
 </script>
+
+<svelte:window {onkeydown} />
 
 <header>
 	<h1>My Board</h1>
@@ -29,8 +51,8 @@
 
 <main>
 	<div class="board">
-		{#each columns as column}
-			<Column {column} {onDrop} onAddItem={(newItem: string) => addItem(column.key, newItem)} />
+		{#each stages as stage}
+			<Column {stage} {onDrop} onAddItem={(taskName: string) => addItem(stage.id, taskName)} />
 		{/each}
 	</div>
 </main>
