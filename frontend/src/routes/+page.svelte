@@ -3,9 +3,15 @@
 	import type { StageResponse, TaskResponse } from '$lib/types';
 	import { updateTaskMoveRequest, addTaskRequest, resetDB } from '$lib/api';
 	import Stage from '$lib/components/Stage.svelte';
+	import { computeCornerLabels } from '$lib/utils';
 
 	let { data }: PageProps = $props();
 	let stages = $state(data.stages);
+
+	let cornorLabels: string[] = $derived.by(() => {
+		const names = stages.map((stage) => stage.name);
+		return computeCornerLabels(names);
+	});
 
 	async function onDrop(
 		draggedTask: TaskResponse,
@@ -65,12 +71,13 @@
 <main>
 	<div class="board-wrapper">
 		<div class="board">
-			{#each stages as stage}
+			{#each stages as stage, idx}
 				<Stage
 					{stage}
 					{onDrop}
 					onAddItem={(taskName: string) => addItem(stage.id, taskName)}
 					{updateTaskName}
+					cornerLabel={cornorLabels[idx]}
 				/>
 			{/each}
 		</div>

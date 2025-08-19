@@ -9,14 +9,14 @@
 		onDrop: (task: TaskResponse, sourceID: number, targetID: number, toIndex: number) => void;
 		onAddItem: (taskName: string) => void;
 		updateTaskName: (stage: StageResponse, idx: number, newName: string) => void;
+		cornerLabel: string;
 	};
 
 	let container = $state<HTMLElement | null>(null);
 	let editingIdx: number | null = $state(null);
 	let isDragover = $state(false);
 
-	const { stage, onDrop, onAddItem, updateTaskName }: Props = $props();
-	const nameLabel: string = stage.name.charAt(0).toUpperCase();
+	const { stage, onDrop, onAddItem, updateTaskName, cornerLabel }: Props = $props();
 
 	let textarea: HTMLTextAreaElement | null = $state(null);
 
@@ -108,16 +108,16 @@
 		}
 	}}
 >
-	<h2 class="stage-name">
-		{stage.name}
-		<span class="corner-label">{nameLabel}</span>
-	</h2>
+	<div class="stage-header">
+		<h2 class="stage-name">{stage.name}</h2>
+		<span class="corner-label">{cornerLabel}</span>
+	</div>
 	<ul class="stage-tasks">
 		{#each stage.tasks as task, idx}
 			{#if idx == editingIdx}
 				<!-- FIXME: id -->
 				<textarea
-					id={`${nameLabel}-textarea`}
+					id={`${cornerLabel}-textarea`}
 					bind:this={textarea}
 					bind:value={task.name}
 					onfocus={() => (editingIdx = idx)}
@@ -135,7 +135,7 @@
 				</li>
 			{/if}
 		{/each}
-		<AddTask {nameLabel} {onAddItem} />
+		<AddTask {cornerLabel} {onAddItem} />
 	</ul>
 </section>
 
@@ -148,6 +148,11 @@
 		padding: 0.3em;
 	}
 
+	.stage-header {
+		position: relative;
+		width: 100%;
+	}
+
 	.stage-name {
 		width: 100%;
 		font-size: 2em;
@@ -158,16 +163,17 @@
 		background: rgba(127, 127, 175, 0.2);
 		padding: 0.2em 0.5em;
 		border-radius: 0.2em;
-		display: flex;
-		justify-content: center;
-		position: relative;
+		text-align: center;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	.corner-label {
 		position: absolute;
 		top: -0.3em;
 		right: -0.3em;
-		font-size: 0.5em;
+		font-size: 1em;
 		font-weight: bold;
 		color: #fff;
 	}

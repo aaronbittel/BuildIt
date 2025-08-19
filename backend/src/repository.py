@@ -17,7 +17,7 @@ from src.schemas import (
 schema = """
 CREATE TABLE stage (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name STRING(30) NOT NULL
+    name STRING(30) NOT NULL UNIQUE
 );
 
 CREATE TABLE task (

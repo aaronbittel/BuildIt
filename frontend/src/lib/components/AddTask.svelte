@@ -5,11 +5,11 @@
 	let showTaskInput: boolean = $state(false);
 
 	type Props = {
-		nameLabel: string;
+		cornerLabel: string;
 		onAddItem: (taskName: string) => void;
 	};
 
-	const { nameLabel, onAddItem }: Props = $props();
+	const { cornerLabel, onAddItem }: Props = $props();
 
 	function handleAddTaskClick() {
 		showTaskInput = !showTaskInput;
@@ -20,12 +20,12 @@
 	}
 
 	async function handleKeydown(event: KeyboardEvent) {
-		if (event.ctrlKey && event.key.toUpperCase() === nameLabel) {
+		if (event.ctrlKey && event.key.toUpperCase() === cornerLabel) {
 			event.preventDefault();
 			showTaskInput = !showTaskInput;
 
 			await tick();
-			document.getElementById(`${nameLabel}-textarea`)?.focus();
+			document.getElementById(`${cornerLabel}-textarea`)?.focus();
 		}
 	}
 
@@ -52,7 +52,7 @@
 {#if showTaskInput}
 	<div class="add-task">
 		<textarea
-			id={`${nameLabel}-textarea`}
+			id={`${cornerLabel}-textarea`}
 			bind:value={newTaskText}
 			placeholder="New task"
 			onkeydown={(e) => handleEnter(e)}
