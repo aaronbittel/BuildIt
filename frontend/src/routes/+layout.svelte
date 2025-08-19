@@ -1,5 +1,6 @@
 <script lang="ts">
 	import favicon from '$lib/assets/favicon.svg';
+	import Statusbar from '$lib/components/Statusbar.svelte';
 
 	let { children } = $props();
 </script>
@@ -9,3 +10,5 @@
 </svelte:head>
 
 {@render children?.()}
+
+<Statusbar />

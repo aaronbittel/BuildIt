@@ -4,6 +4,7 @@
 	import { updateTaskMoveRequest, addTaskRequest, resetDB } from '$lib/api';
 	import Stage from '$lib/components/Stage.svelte';
 	import { computeCornerLabels } from '$lib/utils';
+	import { statusMessage } from '$lib/status';
 
 	let { data }: PageProps = $props();
 	let stages = $state(data.stages);
@@ -57,6 +58,9 @@
 		if (event.ctrlKey && event.key == 'r') {
 			event.preventDefault();
 			stages = await resetDB();
+			if (stages !== undefined) {
+				statusMessage.set("Loaded db snapshot 'Current'");
+			}
 		}
 	}
 </script>
