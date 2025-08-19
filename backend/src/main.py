@@ -1,12 +1,10 @@
 import logging
-import sqlite3
-from collections.abc import Generator
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
-from sqlite3 import Connection, Cursor
-from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.status import (
     HTTP_201_CREATED,
@@ -15,20 +13,25 @@ from starlette.status import (
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 
+from src.dev_utils import DB_SNAPSHOTS_PATH, router
+from src.helpers import (
+    CursorDep,
+    create_tables,
+    init_conn,
+    load_schema_into_db,
+)
 from src.repository import (
     MultipleRowsUpdated,
     NoFieldsToUpdate,
-    fetch_task_by_id,
     fetch_all_tasks,
     fetch_stages_with_tasks,
-    insert_stage,
+    fetch_task_by_id,
     insert_task,
     patch_task,
     schema,
     update_task_ordering,
 )
 from src.schemas import (
-    StageCreate,
     StageDetail,
     TaskCreate,
     TaskMoveUpdate,
@@ -38,85 +41,19 @@ from src.schemas import (
 
 logging.basicConfig()
 
-DB_PATH = "./buildit.db"
-
-
-def init_conn(path: str) -> Connection:
-    conn = sqlite3.connect(path, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-def create_tables(cur: Cursor) -> Cursor:
-    """Initialize the database schema and return a cursor."""
-    cur.executescript(schema)
-    cur.connection.commit()
-    return cur
-
-
-def initial_data(cur: Cursor) -> None:
-    backlog = insert_stage(cur, StageCreate(name="Backlog"))
-    in_progess = insert_stage(cur, StageCreate(name="In Progress"))
-    done = insert_stage(cur, StageCreate(name="Done"))
-
-    insert_task(
-        cur,
-        TaskCreate(
-            name="add feat to update task name",
-            stage_id=done.id,
-        ),
-    )
-
-    insert_task(
-        cur,
-        TaskCreate(
-            name="add feat to update stage name",
-            stage_id=backlog.id,
-        ),
-    )
-
-    insert_task(
-        cur,
-        TaskCreate(
-            name="add creating more stages",
-            stage_id=in_progess.id,
-        ),
-    )
-
-    insert_task(
-        cur,
-        TaskCreate(
-            name="add removing / hidding stages",
-            stage_id=backlog.id,
-        ),
-    )
-
-    insert_task(
-        cur,
-        TaskCreate(
-            name="add more metadata to the tasks",
-            stage_id=backlog.id,
-        ),
-    )
-
-    cur.connection.commit()
-
-
-def tables_exists(cur: Cursor) -> bool:
-    try:
-        cur.execute("SELECT 1 FROM task").fetchone()
-    except sqlite3.OperationalError:
-        return False
-    return True
+load_dotenv()
+_db_path = os.getenv("SQLITE_DATABASE_PATH")
+assert _db_path is not None
+DB_PATH = Path(_db_path)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    path_exists = DB_PATH.exists()
     conn = init_conn(DB_PATH)
     cur = conn.cursor()
-    if not tables_exists(cur):
-        cur = create_tables(cur)
-        initial_data(cur)
+    if not path_exists:
+        cur = create_tables(cur, schema)
 
     app.state.conn = conn
     app.state.cur = cur
@@ -137,16 +74,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-def get_cursor() -> Generator[Cursor]:
-    try:
-        yield app.state.cur
-    except Exception:
-        app.state.cur.connection.rollback()
-        raise
-
-
-CursorDep = Annotated[Cursor, Depends(get_cursor)]
+app.include_router(router)
 
 
 @app.get("/")
@@ -154,7 +82,7 @@ def hello_world():
     return {"hello": "world"}
 
 
-@app.get("/tasks", response_model=list[TaskPublic])
+@app.get("/tasks", response_model=list[StageDetail])
 def get_all_tasks(cur: CursorDep):
     return fetch_all_tasks(cur)
 
@@ -166,6 +94,7 @@ def create_task(cur: CursorDep, newTask: TaskCreate):
     return new_task
 
 
+# FIXME: do this better
 def update_task_or_fail(
     cur: CursorDep,
     task_id: int,
@@ -183,7 +112,6 @@ def update_task_or_fail(
 
 @app.patch("/tasks/{task_id}/move", response_model=list[StageDetail])
 def update_task_move(cur: CursorDep, task_id: int, moved_task: TaskMoveUpdate):
-    print("got", task_id, moved_task)
     old_task = fetch_task_by_id(cur, task_id)
     if not old_task:
         raise HTTPException(
@@ -208,18 +136,9 @@ def get_stages_with_tasks(cur: CursorDep):
 
 
 @app.post("/reset")
-def reset_db():
-    app.state.cur.close()
-    app.state.conn.close()
+def reset_db(request: Request):
+    current = DB_SNAPSHOTS_PATH / "current.sql"
+    snapshot = current.read_text() if current.exists() else schema
 
-    Path(DB_PATH).unlink(missing_ok=True)
-
-    conn = init_conn(DB_PATH)
-    cur = conn.cursor()
-    cur = create_tables(cur)
-    initial_data(cur)
-
-    app.state.conn = conn
-    app.state.cur = cur
-
-    return get_stages_with_tasks(cur)
+    load_schema_into_db(request, DB_PATH, snapshot)
+    return {"message": f"Successfully reset db {DB_PATH}"}

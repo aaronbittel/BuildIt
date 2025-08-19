@@ -1,3 +1,4 @@
+from pathlib import Path
 from sqlite3 import Cursor
 from typing import Callable, Generator
 
@@ -11,6 +12,7 @@ from src.repository import (
     fetch_task_by_id,
     insert_stage,
     insert_task,
+    schema,
 )
 from src.schemas import StageCreate, StagePublic, TaskCreate, TaskMoveUpdate, TaskPublic
 
@@ -25,9 +27,9 @@ def client_fixture(cur: Cursor) -> Generator[TestClient, None, None]:
 
 @pytest.fixture(name="cur")
 def cursor_fixture() -> Generator[Cursor, None, None]:
-    conn = init_conn(":memory:")
+    conn = init_conn(Path(":memory:"))
     cur = conn.cursor()
-    cur = create_tables(cur)
+    cur = create_tables(cur, schema)
 
     yield cur
 
@@ -72,9 +74,6 @@ def test_reorder_task_within_stage(
     stage, tasks = setup_stage_with_n_tasks("Test Stage", 5)
     dragged_task = tasks[3]
     target_position = 1
-
-    print(f"/tasks/{dragged_task.id}/move")
-    print(TaskMoveUpdate(stage_id=stage.id, to_index=target_position).model_dump())
 
     response = client.patch(
         f"/tasks/{dragged_task.id}/move",

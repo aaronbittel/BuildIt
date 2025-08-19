@@ -75,12 +75,19 @@ async function addTaskRequest(
 }
 
 async function resetDB() {
-    const res = await fetch(`${BACKEND_PREFIX}/reset`, { method: 'POST' });
+    let res = await fetch(`${BACKEND_PREFIX}/reset`, { method: 'POST' });
     if (!res.ok) {
         console.error('error resetting db');
         return;
     }
-    return await res.json();
+
+    res = await fetch(`${BACKEND_PREFIX}/stages/tasks`)
+    if (!res.ok) {
+        console.error("error fetching stage details")
+        return
+    }
+
+    return await res.json()
 }
 
 export { updateTaskMoveRequest, updateTaskNameRequest, addTaskRequest, resetDB }
