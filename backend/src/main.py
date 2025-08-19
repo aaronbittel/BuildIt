@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.status import (
     HTTP_201_CREATED,
+    HTTP_204_NO_CONTENT,
     HTTP_400_BAD_REQUEST,
     HTTP_404_NOT_FOUND,
     HTTP_500_INTERNAL_SERVER_ERROR,
@@ -23,6 +24,7 @@ from src.helpers import (
 from src.repository import (
     MultipleRowsUpdated,
     NoFieldsToUpdate,
+    delete_task_by_id,
     fetch_all_tasks,
     fetch_stages_with_tasks,
     fetch_task_by_id,
@@ -142,3 +144,12 @@ def reset_db(request: Request):
 
     load_schema_into_db(request, DB_PATH, snapshot)
     return {"message": f"Successfully reset db {DB_PATH}"}
+
+
+@app.delete("/tasks/{task_id}", status_code=HTTP_204_NO_CONTENT)
+def delete_task(cur: CursorDep, task_id: int):
+    rowcount = delete_task_by_id(cur, task_id)
+    if rowcount == 0:
+        raise HTTPException(HTTP_404_NOT_FOUND, detail="Task not found")
+
+    assert rowcount == 1, "Noway4u_sir"

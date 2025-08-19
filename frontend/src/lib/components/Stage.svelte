@@ -3,6 +3,7 @@
 	import type { StageResponse, TaskResponse } from '$lib/types';
 	import { updateTaskNameRequest } from '$lib/api';
 	import { tick } from 'svelte';
+	import { isDragging } from '$lib/store';
 
 	type Props = {
 		stage: StageResponse;
@@ -25,6 +26,7 @@
 		textarea.style.height = 'auto';
 		textarea.style.height = textarea.scrollHeight + 'px';
 	}
+
 	$effect(() => {
 		resizeTextarea();
 	});
@@ -42,10 +44,15 @@
 	}
 
 	function handleDragStart(event: DragEvent, task: TaskResponse, sourceID: number) {
+		isDragging.set(true);
 		event.dataTransfer?.setData(
 			'application/json',
 			JSON.stringify({ task: task, sourceID: sourceID })
 		);
+	}
+
+	function handleDragEnd() {
+		isDragging.set(false);
 	}
 
 	function handleDropEvent(event: DragEvent) {
@@ -129,6 +136,7 @@
 					role="listitem"
 					draggable="true"
 					ondragstart={(e) => handleDragStart(e, task, stage.id)}
+					ondragend={handleDragEnd}
 					ondblclick={() => handleDoubleClick(idx)}
 				>
 					{task.name}

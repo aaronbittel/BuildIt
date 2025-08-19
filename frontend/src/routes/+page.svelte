@@ -1,10 +1,11 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
 	import type { StageResponse, TaskResponse } from '$lib/types';
-	import { updateTaskMoveRequest, addTaskRequest, resetDB } from '$lib/api';
+	import { updateTaskMoveRequest, addTaskRequest, resetDBRequest } from '$lib/api';
 	import Stage from '$lib/components/Stage.svelte';
 	import { computeCornerLabels } from '$lib/utils';
-	import { statusMessage } from '$lib/status';
+	import { isDragging, statusMessage } from '$lib/store';
+	import Deadzone from '$lib/components/Deadzone.svelte';
 
 	let { data }: PageProps = $props();
 	let stages = $state(data.stages);
@@ -50,6 +51,13 @@
 		stage.tasks.push(newTask);
 	}
 
+	function handleTaskDeleted(taskId: number) {
+		stages = stages.map((stage) => ({
+			...stage,
+			tasks: stage.tasks.filter((task) => task.id !== taskId)
+		}));
+	}
+
 	function updateTaskName(stage: StageResponse, idx: number, newName: string) {
 		stage.tasks[idx].name = newName;
 	}
@@ -57,7 +65,7 @@
 	async function onkeydown(event: KeyboardEvent) {
 		if (event.ctrlKey && event.key == 'r') {
 			event.preventDefault();
-			stages = await resetDB();
+			stages = await resetDBRequest();
 			if (stages !== undefined) {
 				statusMessage.set("Loaded db snapshot 'Current'");
 			}
@@ -87,6 +95,10 @@
 		</div>
 	</div>
 </main>
+
+{#if $isDragging}
+	<Deadzone {handleTaskDeleted} />
+{/if}
 
 <style>
 	:global(*) {

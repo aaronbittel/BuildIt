@@ -74,7 +74,7 @@ async function addTaskRequest(
     }
 }
 
-async function resetDB() {
+async function resetDBRequest() {
     let res = await fetch(`${BACKEND_PREFIX}/reset`, { method: 'POST' });
     if (!res.ok) {
         console.error('error resetting db');
@@ -90,4 +90,12 @@ async function resetDB() {
     return await res.json()
 }
 
-export { updateTaskMoveRequest, updateTaskNameRequest, addTaskRequest, resetDB }
+async function deleteTaskRequest(task_id: number) {
+    let res = await fetch(`${BACKEND_PREFIX}/tasks/${task_id}`, { method: "DELETE" })
+    if (!res.ok) {
+        console.log("error deleting task with id", task_id)
+        return;
+    }
+}
+
+export { updateTaskMoveRequest, updateTaskNameRequest, addTaskRequest, resetDBRequest, deleteTaskRequest }

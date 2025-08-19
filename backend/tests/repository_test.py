@@ -14,7 +14,7 @@ from src.repository import (
     insert_task,
     schema,
 )
-from src.schemas import StageCreate, StagePublic, TaskCreate, TaskMoveUpdate, TaskPublic
+from src.schemas import StageCreate, StagePublic, TaskCreate, TaskPublic
 
 
 @pytest.fixture(name="client")

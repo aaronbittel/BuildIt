@@ -245,3 +245,10 @@ def patch_task(
     assert updated_task is not None
 
     return updated_task
+
+
+def delete_task_by_id(cur: Cursor, task_id: int) -> int:
+    cur = cur.execute(
+        Query.from_(Task_T).delete().where(Task_T.id == task_id).get_sql()
+    )
+    return cur.rowcount

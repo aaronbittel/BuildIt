@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { statusMessage } from '$lib/status';
+	import { statusMessage } from '$lib/store';
 	import { onDestroy } from 'svelte';
 	import { fade } from 'svelte/transition';
 
@@ -7,7 +7,6 @@
 	let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
 	const unsubscribe = statusMessage.subscribe((value) => {
-		console.log(value);
 		message = value;
 
 		if (timeoutId) clearTimeout(timeoutId);
