@@ -158,10 +158,10 @@ def create_task(cur: CursorDep, newTask: TaskCreate):
     return new_task
 
 
-@app.patch("/tasks/{task_id}", response_model=TaskPublic)
+@app.patch("/tasks/{task_id}", response_model=list[StageDetail])
 def update_task(cur: CursorDep, task_id: int, patched_task: TaskUpdate):
     try:
-        updated_task = patch_task(cur, task_id, patched_task)
+        patch_task(cur, task_id, patched_task)
         cur.connection.commit()
     except NoFieldsToUpdate as e:
         raise HTTPException(HTTP_400_BAD_REQUEST, detail=str(e))
@@ -169,7 +169,10 @@ def update_task(cur: CursorDep, task_id: int, patched_task: TaskUpdate):
         raise HTTPException(HTTP_404_NOT_FOUND, detail=str(e))
     except MultipleRowsUpdated as e:
         raise HTTPException(HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-    return updated_task
+    stages = fetch_stages_with_tasks(cur)
+    for stage in stages:
+        stage.tasks.sort(key=lambda t: t.position)
+    return stages
 
 
 @app.get("/stages/tasks", response_model=list[StageDetail])

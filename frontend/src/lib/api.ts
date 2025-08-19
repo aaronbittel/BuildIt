@@ -1,4 +1,4 @@
-import type { TaskResponse } from "$lib/types"
+import type { StageResponse, TaskResponse } from "$lib/types"
 
 const BACKEND_PREFIX = "http://localhost:8000"
 
@@ -6,7 +6,7 @@ async function updateTaskRequest(
     task_id: number,
     toIndex: number,
     updatedFields: Partial<{ name: string; stage_id: number }>
-): Promise<TaskResponse> {
+): Promise<StageResponse[]> {
     const body = { ...updatedFields, to_index: toIndex }
     const res = await fetch(`${BACKEND_PREFIX}/tasks/${task_id}`, {
         method: 'PATCH',

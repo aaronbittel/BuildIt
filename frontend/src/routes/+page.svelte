@@ -24,28 +24,15 @@
 		// no actual update happend
 		if (sourceStage.id === targetStage.id && fromIndex === toIndex) return;
 
-		let updatedTask: TaskResponse | undefined;
 		try {
-			updatedTask = await updateTaskRequest(draggedTask.id, toIndex, {
+			const updatedStages = await updateTaskRequest(draggedTask.id, toIndex, {
 				stage_id: targetStage.id
 			});
+			stages = updatedStages;
 		} catch (err) {
 			console.error(err);
 			return;
 		}
-
-		if (sourceStage.id === targetStage.id) {
-			if (fromIndex !== toIndex) {
-				reorderTasks(sourceStage, fromIndex, toIndex);
-			}
-			return;
-		}
-
-		sourceStage.tasks = sourceStage.tasks.filter(
-			(task: TaskResponse) => task.id !== draggedTask.id
-		);
-		targetStage.tasks.push(updatedTask);
-		reorderTasks(targetStage, fromIndex, toIndex);
 	}
 
 	async function addItem(stageID: number, taskName: string) {
@@ -63,11 +50,6 @@
 			event.preventDefault();
 			stages = await resetDB();
 		}
-	}
-
-	function reorderTasks(source: StageResponse, fromIndex: number, toIndex: number) {
-		const [task] = source.tasks.splice(fromIndex, 1);
-		source.tasks.splice(toIndex, 0, task);
 	}
 </script>
 
