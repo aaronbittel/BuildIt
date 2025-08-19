@@ -115,6 +115,7 @@
 	<ul class="stage-tasks">
 		{#each stage.tasks as task, idx}
 			{#if idx == editingIdx}
+				<!-- FIXME: id -->
 				<textarea
 					id={`${nameLabel}-textarea`}
 					bind:this={textarea}

@@ -1,16 +1,26 @@
 from sqlite3 import Cursor
 from typing import Callable, Generator
-import pytest
 
+import pytest
+from fastapi.testclient import TestClient
+from starlette.status import HTTP_200_OK
+
+from src.main import app, create_tables, init_conn
 from src.repository import (
-    fetch_all_tasks,
     fetch_all_tasks_by_stage_id,
+    fetch_task_by_id,
     insert_stage,
     insert_task,
-    patch_task,
 )
-from src.main import init_conn, create_tables
-from src.schemas import StageCreate, StagePublic, TaskCreate, TaskPublic, TaskMoveUpdate
+from src.schemas import StageCreate, StagePublic, TaskCreate, TaskMoveUpdate, TaskPublic
+
+
+@pytest.fixture(name="client")
+def client_fixture(cur: Cursor) -> Generator[TestClient, None, None]:
+    app.state.conn = cur.connection
+    app.state.cur = cur
+
+    yield TestClient(app)
 
 
 @pytest.fixture(name="cur")
@@ -23,12 +33,6 @@ def cursor_fixture() -> Generator[Cursor, None, None]:
 
     cur.close()
     conn.close()
-
-
-@pytest.fixture(name="db_conn_val")
-def db_conn_val_fixture(cur: Cursor) -> None:
-    test_stage = insert_stage(cur, StageCreate(name="Test Stage"))
-    insert_task(cur, TaskCreate(name="New Task 1", stage_id=test_stage.id))
 
 
 @pytest.fixture(name="setup_stage_tasks")
@@ -61,6 +65,7 @@ def setup_stage_with_n_tasks_fixture(
 
 
 def test_reorder_task_within_stage(
+    client: TestClient,
     cur: Cursor,
     setup_stage_with_n_tasks: Callable[..., tuple[StagePublic, list[TaskPublic]]],
 ) -> None:
@@ -68,11 +73,17 @@ def test_reorder_task_within_stage(
     dragged_task = tasks[3]
     target_position = 1
 
-    updated_task = patch_task(
-        cur,
-        dragged_task.id,
-        TaskMoveUpdate(stage_id=stage.id, to_index=target_position),
+    print(f"/tasks/{dragged_task.id}/move")
+    print(TaskMoveUpdate(stage_id=stage.id, to_index=target_position).model_dump())
+
+    response = client.patch(
+        f"/tasks/{dragged_task.id}/move",
+        json={"stage_id": stage.id, "to_index": target_position},
     )
+    assert response.status_code == HTTP_200_OK
+
+    updated_task = fetch_task_by_id(cur, dragged_task.id)
+    assert updated_task is not None
 
     assert updated_task.id == dragged_task.id
     assert updated_task.stage_id == dragged_task.stage_id
@@ -84,6 +95,7 @@ def test_reorder_task_within_stage(
 
 
 def test_reorder_task_new_stage(
+    client: TestClient,
     cur: Cursor,
     setup_stage_with_n_tasks: Callable[..., tuple[StagePublic, list[TaskPublic]]],
 ) -> None:
@@ -95,11 +107,17 @@ def test_reorder_task_new_stage(
     dragged_task = old_stage_tasks[3]
     target_position_new_stage = 3
 
-    updated_task = patch_task(
-        cur,
-        dragged_task.id,
-        TaskMoveUpdate(stage_id=new_stage.id, to_index=target_position_new_stage),
+    response = client.patch(
+        f"/tasks/{dragged_task.id}/move",
+        json={
+            "stage_id": new_stage.id,
+            "to_index": target_position_new_stage,
+        },
     )
+    assert response.status_code == HTTP_200_OK
+
+    updated_task = fetch_task_by_id(cur, dragged_task.id)
+    assert updated_task is not None
 
     assert updated_task.id == dragged_task.id
     assert updated_task.stage_id == new_stage.id
@@ -114,11 +132,3 @@ def test_reorder_task_new_stage(
     assert set(map(lambda task: task.position, updated_new_tasks)) == set(
         range(0, new_stage_length + 1)
     )
-
-
-@pytest.mark.usefixtures("db_conn_val")
-def test_db_connection(cur: Cursor):
-    tasks = fetch_all_tasks(cur)
-    assert len(tasks) == 1
-    task = tasks[0]
-    assert task.name == "New Task 1"

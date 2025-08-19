@@ -183,6 +183,7 @@ def update_task_or_fail(
 
 @app.patch("/tasks/{task_id}/move", response_model=list[StageDetail])
 def update_task_move(cur: CursorDep, task_id: int, moved_task: TaskMoveUpdate):
+    print("got", task_id, moved_task)
     old_task = fetch_task_by_id(cur, task_id)
     if not old_task:
         raise HTTPException(
