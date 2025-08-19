@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from sqlite3 import Cursor
 
-from pypika import Query, Table
+from pypika import Query, Table, functions as fn
 
-from schemas import (
+from src.schemas import (
     StageCreate,
     StageDetail,
     StagePublic,
@@ -23,26 +23,9 @@ CREATE TABLE task (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name STRING NOT NULL,
     stage_id INT NOT NULL,
+    position INT NOT NULL,
     FOREIGN KEY (stage_id) REFERENCES stage(id)
 );
-
-CREATE TABLE task_order (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    stage_id INTEGER NOT NULL,
-    task_id INTEGER NOT NULL,
-    pos REAL NOT NULL DEFAULT 0,
-    FOREIGN KEY (stage_id) REFERENCES stage(id),
-    FOREIGN KEY (task_id) REFERENCES task(id)
-);
-
-INSERT INTO stage (name) VALUES ('Backlog'), ('In Progress'), ('Done');
-
-INSERT INTO task (name, stage_id)
-VALUES
-('Create table that stores stage_id to item ordering', 2),
-('Order of item depends on drag position', 3),
-('add more metadata to the tasks', 1),
-('reording of tasks via drag and drop in the frontend', 3)
 """
 
 
@@ -102,11 +85,22 @@ def fetch_stage_by_id(cur: Cursor, id: int) -> StagePublic | None:
     return StagePublic.from_row(row)
 
 
+def fetch_next_task_position(cur: Cursor, stage_id: int) -> int:
+    query = (
+        Task_T.select(fn.Max(Task_T.position).as_("next_pos"))
+        .where(Task_T.stage_id == stage_id)
+        .get_sql()
+    )
+    next_pos = cur.execute(query).fetchone()
+    return next_pos[0] + 1 if next_pos[0] is not None else 0
+
+
 def insert_task(cur: Cursor, task: TaskCreate) -> TaskPublic:
+    next_position = fetch_next_task_position(cur, task.stage_id)
     query = (
         Query.into(Task_T)
-        .columns("name", "stage_id")
-        .insert(task.name, task.stage_id)
+        .columns("name", "stage_id", "position")
+        .insert(task.name, task.stage_id, next_position)
         .get_sql()
     )
     cur = cur.execute(query)
@@ -124,6 +118,11 @@ def fetch_all_tasks(cur: Cursor) -> list[TaskPublic]:
     return [TaskPublic.from_row(row) for row in cur.execute(query).fetchall()]
 
 
+def fetch_all_tasks_by_stage_id(cur: Cursor, stage_id: int) -> list[TaskPublic]:
+    query = Task_T.select("*").where(Task_T.stage_id == stage_id).get_sql()
+    return [TaskPublic.from_row(row) for row in cur.execute(query).fetchall()]
+
+
 def fetch_task_by_id(cur: Cursor, id: int) -> TaskPublic | None:
     query = Task_T.select("*").where(Task_T.id == id).get_sql()
     row = cur.execute(query).fetchone()
@@ -132,27 +131,107 @@ def fetch_task_by_id(cur: Cursor, id: int) -> TaskPublic | None:
     return TaskPublic.from_row(row)
 
 
-def insert_stage(cur: Cursor, stage: StageCreate) -> int:
+def insert_stage(cur: Cursor, stage: StageCreate) -> StagePublic:
     query = Query.into(Stage_T).columns("name").insert(stage.name).get_sql()
     cur = cur.execute(query)
 
     last_id = cur.lastrowid
     if not last_id:
         raise RuntimeError(f"error inserting row {stage} into {Stage_T}")
-    return last_id
+    new_stage = fetch_stage_by_id(cur, last_id)
+    assert new_stage is not None
+    return new_stage
 
 
-def patch_task(cur: Cursor, task_id, patched_task: TaskUpdate) -> TaskPublic:
-    query = Query.update(Task_T).where(Task_T.id == task_id)
-    fields = patched_task.model_dump(exclude_unset=True, exclude=set("id"))
+def update_same_stage_positions(
+    cur: Cursor,
+    stage_id: int,
+    prev_position: int,
+    new_position: int,
+):
+    if prev_position == new_position:
+        return
+
+    # moved forward in same stage
+    if prev_position > new_position:
+        query = (
+            Query.update(Task_T)
+            .set(Task_T.position, Task_T.position + 1)
+            .where(Task_T.stage_id == stage_id)
+            .where(new_position <= Task_T.position)
+            .where(Task_T.position < prev_position)
+            .get_sql()
+        )
+    else:
+        query = (
+            Query.update(Task_T)
+            .set(Task_T.position, Task_T.position - 1)
+            .where(Task_T.stage_id == stage_id)
+            .where(
+                (prev_position < Task_T.position) & (Task_T.position <= new_position)
+            )
+            .get_sql()
+        )
+
+    cur.execute(query)
+
+
+def update_old_stage_positions(
+    cur: Cursor,
+    stage_id: int,
+    prev_position: int,
+):
+    query = (
+        Query.update(Task_T)
+        .set(Task_T.position, Task_T.position - 1)
+        .where(Task_T.stage_id == stage_id)
+        .where(Task_T.position > prev_position)
+        .get_sql()
+    )
+    cur.execute(query)
+
+
+def update_new_stage_positions(
+    cur: Cursor,
+    stage_id: int,
+    position: int,
+):
+    query = (
+        Query.update(Task_T)
+        .set(Task_T.position, Task_T.position + 1)
+        .where(Task_T.stage_id == stage_id)
+        .where(Task_T.position >= position)
+        .get_sql()
+    )
+    cur.execute(query)
+
+
+def patch_task(cur: Cursor, task_id: int, patched_task: TaskUpdate) -> TaskPublic:
+    old_task = fetch_task_by_id(cur, task_id)
+    if not old_task:
+        raise NotFound(model="Task", id=task_id)
+
+    fields = patched_task.model_dump(exclude_unset=True, exclude={"id"})
     if not fields:
         raise NoFieldsToUpdate
 
-    for k, v in fields.items():
-        query = query.set(k, v)
+    previous_stage_id = old_task.stage_id
+    new_stage_id = patched_task.stage_id if patched_task.stage_id else previous_stage_id
 
-    query = query.get_sql()
-    cur = cur.execute(query)
+    if previous_stage_id == new_stage_id:
+        update_same_stage_positions(
+            cur, previous_stage_id, old_task.position, patched_task.position
+        )
+    else:
+        update_old_stage_positions(cur, previous_stage_id, old_task.position)
+        update_new_stage_positions(cur, new_stage_id, patched_task.position)
+
+    update_query = Query.update(Task_T).where(Task_T.id == task_id)
+    for k, v in fields.items():
+        update_query = update_query.set(k, v)
+
+    update_query = update_query.get_sql()
+    cur = cur.execute(update_query)
 
     if cur.rowcount == 0:
         raise NotFound(model="Task", id=task_id)

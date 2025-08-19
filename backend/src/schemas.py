@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import field
 import sqlite3
 
-from pydantic import BaseModel as BaseSchema
+from pydantic import BaseModel as BaseSchema, Field
 
 
 # def update_model(cls: type[BaseSchema]):
@@ -38,6 +38,7 @@ class TaskCreate(BaseSchema):
 
 class TaskPublic(TaskCreate):
     id: int
+    position: int
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> TaskPublic:
@@ -47,6 +48,7 @@ class TaskPublic(TaskCreate):
 class TaskUpdate(BaseSchema):
     name: str | None = None
     stage_id: int | None = None
+    position: int = Field(alias="to_index")
 
 
 class StageDetail(StagePublic):

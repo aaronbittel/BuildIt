@@ -13,24 +13,39 @@
 		targetID: number,
 		toIndex: number
 	) {
-		const source = stages.find((c) => c.id === sourceID);
-		const target = stages.find((c) => c.id === targetID);
+		const sourceStage = stages.find((c) => c.id === sourceID);
+		const targetStage = stages.find((c) => c.id === targetID);
 
-		if (!source || !target) return;
+		if (!sourceStage || !targetStage)
+			throw new Error('somehow there are at least one stage id was not found');
 
-		if (source.id === target.id) {
-			reorderTasks(source, draggedTask, toIndex);
+		const fromIndex = sourceStage.tasks.findIndex((t) => t.id === draggedTask.id);
+
+		// no actual update happend
+		if (sourceStage.id === targetStage.id && fromIndex === toIndex) return;
+
+		let updatedTask: TaskResponse | undefined;
+		try {
+			updatedTask = await updateTaskRequest(draggedTask.id, toIndex, {
+				stage_id: targetStage.id
+			});
+		} catch (err) {
+			console.error(err);
 			return;
 		}
 
-		try {
-			const updatedTask = await updateTaskRequest(draggedTask.id, { stage_id: target.id });
-			source.tasks = source.tasks.filter((task: TaskResponse) => task.id !== draggedTask.id);
-			target.tasks.push(updatedTask);
-			reorderTasks(target, updatedTask, toIndex);
-		} catch (err) {
-			console.error(err);
+		if (sourceStage.id === targetStage.id) {
+			if (fromIndex !== toIndex) {
+				reorderTasks(sourceStage, fromIndex, toIndex);
+			}
+			return;
 		}
+
+		sourceStage.tasks = sourceStage.tasks.filter(
+			(task: TaskResponse) => task.id !== draggedTask.id
+		);
+		targetStage.tasks.push(updatedTask);
+		reorderTasks(targetStage, fromIndex, toIndex);
 	}
 
 	async function addItem(stageID: number, taskName: string) {
@@ -50,8 +65,7 @@
 		}
 	}
 
-	function reorderTasks(source: StageResponse, draggedTask: TaskResponse, toIndex: number) {
-		const fromIndex = source.tasks.findIndex((t) => t.id === draggedTask.id);
+	function reorderTasks(source: StageResponse, fromIndex: number, toIndex: number) {
 		const [task] = source.tasks.splice(fromIndex, 1);
 		source.tasks.splice(toIndex, 0, task);
 	}

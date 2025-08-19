@@ -4,14 +4,16 @@ const BACKEND_PREFIX = "http://localhost:8000"
 
 async function updateTaskRequest(
     task_id: number,
+    toIndex: number,
     updatedFields: Partial<{ name: string; stage_id: number }>
 ): Promise<TaskResponse> {
+    const body = { ...updatedFields, to_index: toIndex }
     const res = await fetch(`${BACKEND_PREFIX}/tasks/${task_id}`, {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify(updatedFields)
+        body: JSON.stringify(body)
     });
 
     if (!res.ok) {

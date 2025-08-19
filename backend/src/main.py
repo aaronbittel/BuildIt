@@ -15,43 +15,91 @@ from starlette.status import (
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 
-from repository import (
+from src.repository import (
     MultipleRowsUpdated,
     NoFieldsToUpdate,
     NotFound,
     fetch_all_tasks,
     fetch_stages_with_tasks,
+    insert_stage,
     insert_task,
     patch_task,
     schema,
 )
-from schemas import TaskCreate, TaskPublic, TaskUpdate
+from src.schemas import StageCreate, StageDetail, TaskCreate, TaskPublic, TaskUpdate
 
 logging.basicConfig()
 
-DB_PATH = Path("./buildit.db")
+DB_PATH = "./buildit.db"
 
 
-def init_conn() -> Connection:
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+def init_conn(path: str) -> Connection:
+    conn = sqlite3.connect(path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
 
-def init_db(conn: Connection) -> Cursor:
+def create_tables(cur: Cursor) -> Cursor:
     """Initialize the database schema and return a cursor."""
-    cur = conn.cursor()
     cur.executescript(schema)
-    conn.commit()
+    cur.connection.commit()
     return cur
+
+
+def initial_data(cur: Cursor) -> None:
+    backlog = insert_stage(cur, StageCreate(name="Backlog"))
+    in_progess = insert_stage(cur, StageCreate(name="In Progress"))
+    done = insert_stage(cur, StageCreate(name="Done"))
+
+    insert_task(
+        cur,
+        TaskCreate(
+            name="Create table that stores stage_id to item ordering",
+            stage_id=in_progess.id,
+        ),
+    )
+
+    insert_task(
+        cur,
+        TaskCreate(
+            name="Order of item depends on drag position",
+            stage_id=done.id,
+        ),
+    )
+
+    insert_task(
+        cur,
+        TaskCreate(
+            name="add more metadata to the tasks",
+            stage_id=backlog.id,
+        ),
+    )
+
+    insert_task(
+        cur,
+        TaskCreate(
+            name="reording of tasks via drag and drop in the frontend",
+            stage_id=done.id,
+        ),
+    )
+    cur.connection.commit()
+
+
+def tables_exists(cur: Cursor) -> bool:
+    try:
+        cur.execute("SELECT 1 FROM task").fetchone()
+    except sqlite3.OperationalError:
+        return False
+    return True
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    DB_PATH.unlink(missing_ok=True)
-
-    conn = init_conn()
-    cur = init_db(conn)
+    conn = init_conn(DB_PATH)
+    cur = conn.cursor()
+    if not tables_exists(cur):
+        cur = create_tables(cur)
+        initial_data(cur)
 
     app.state.conn = conn
     app.state.cur = cur
@@ -115,9 +163,12 @@ def update_task(cur: CursorDep, task_id: int, patched_task: TaskUpdate):
     return updated_task
 
 
-@app.get("/stages/tasks")
+@app.get("/stages/tasks", response_model=list[StageDetail])
 def get_stages_with_tasks(cur: CursorDep):
-    return fetch_stages_with_tasks(cur)
+    stages = fetch_stages_with_tasks(cur)
+    for stage in stages:
+        stage.tasks.sort(key=lambda t: t.position)
+    return stages
 
 
 @app.post("/reset")
@@ -125,10 +176,12 @@ def reset_db():
     app.state.cur.close()
     app.state.conn.close()
 
-    DB_PATH.unlink(missing_ok=True)
+    Path(DB_PATH).unlink(missing_ok=True)
 
-    conn = init_conn()
-    cur = init_db(conn)
+    conn = init_conn(DB_PATH)
+    cur = conn.cursor()
+    cur = create_tables(cur)
+    initial_data(cur)
 
     app.state.conn = conn
     app.state.cur = cur

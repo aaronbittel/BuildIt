@@ -2,3 +2,4 @@
 .venv
 buildit.db
 __pycache__/
+.coverage
