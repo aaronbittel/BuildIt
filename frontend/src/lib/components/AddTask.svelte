@@ -56,6 +56,7 @@
 			bind:value={newTaskText}
 			placeholder="New task"
 			onkeydown={(e) => handleEnter(e)}
+			onblur={() => handleAddTaskClick()}
 		></textarea>
 	</div>
 {/if}
