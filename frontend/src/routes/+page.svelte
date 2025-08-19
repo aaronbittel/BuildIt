@@ -63,15 +63,17 @@
 </header>
 
 <main>
-	<div class="board">
-		{#each stages as stage}
-			<Stage
-				{stage}
-				{onDrop}
-				onAddItem={(taskName: string) => addItem(stage.id, taskName)}
-				{updateTaskName}
-			/>
-		{/each}
+	<div class="board-wrapper">
+		<div class="board">
+			{#each stages as stage}
+				<Stage
+					{stage}
+					{onDrop}
+					onAddItem={(taskName: string) => addItem(stage.id, taskName)}
+					{updateTaskName}
+				/>
+			{/each}
+		</div>
 	</div>
 </main>
 
@@ -91,13 +93,40 @@
 
 	header {
 		display: flex;
-		justify-content: space-between;
+		justify-content: center;
 		align-items: center;
+		position: relative;
 		height: 100px;
-		margin: 0 5%;
+		margin: 2vh 5vh;
+	}
+
+	main {
+		display: grid;
+		grid-template-columns: clamp(1em, 3vw, 10em) 1fr clamp(1em, 3vw, 10em);
+		grid-template-areas: '. board .';
+	}
+
+	.board-wrapper {
+		display: flex;
+		justify-content: center;
+		overflow-x: auto;
+		padding-bottom: 3em;
+		grid-area: board;
+	}
+
+	.board {
+		justify-content: start;
+		display: grid;
+		grid-auto-flow: column;
+		grid-auto-columns: clamp(17em, 18vw, 25em);
+		gap: clamp(1em, 2vw, 1.2em);
+		overflow: scroll;
+		padding-bottom: 3em;
 	}
 
 	.add-stage-btn {
+		position: absolute;
+		right: 0;
 		background: linear-gradient(135deg, #4a3fdb, #6d5dfc);
 		color: #fff;
 		font-size: 1.1rem;
@@ -121,28 +150,5 @@
 	.add-stage-btn:active {
 		transform: translateY(0);
 		box-shadow: 0 3px 8px rgba(80, 70, 255, 0.4);
-	}
-
-	main {
-		display: grid;
-		grid-template-columns: 7% 1fr 7%;
-		grid-template-areas: '. board .';
-	}
-
-	.board {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 4em;
-		grid-area: board;
-	}
-
-	@media (max-width: 1200px) {
-		main {
-			grid-template-columns: 3% 1fr 3%;
-		}
-
-		.board {
-			gap: 2em;
-		}
 	}
 </style>
