@@ -10,7 +10,7 @@ from src.repository import (
     patch_task,
 )
 from src.main import init_conn, create_tables
-from src.schemas import StageCreate, StagePublic, TaskCreate, TaskPublic, TaskUpdate
+from src.schemas import StageCreate, StagePublic, TaskCreate, TaskPublic, TaskMoveUpdate
 
 
 @pytest.fixture(name="cur")
@@ -69,7 +69,9 @@ def test_reorder_task_within_stage(
     target_position = 1
 
     updated_task = patch_task(
-        cur, dragged_task.id, TaskUpdate(stage_id=stage.id, to_index=target_position)
+        cur,
+        dragged_task.id,
+        TaskMoveUpdate(stage_id=stage.id, to_index=target_position),
     )
 
     assert updated_task.id == dragged_task.id
@@ -96,7 +98,7 @@ def test_reorder_task_new_stage(
     updated_task = patch_task(
         cur,
         dragged_task.id,
-        TaskUpdate(stage_id=new_stage.id, to_index=target_position_new_stage),
+        TaskMoveUpdate(stage_id=new_stage.id, to_index=target_position_new_stage),
     )
 
     assert updated_task.id == dragged_task.id

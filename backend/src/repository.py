@@ -9,8 +9,9 @@ from src.schemas import (
     StageDetail,
     StagePublic,
     TaskCreate,
+    TaskNameUpdate,
     TaskPublic,
-    TaskUpdate,
+    TaskMoveUpdate,
 )
 
 schema = """
@@ -34,13 +35,6 @@ class NoFieldsToUpdate(ValueError):
         super().__init__("No fields provided to update")
 
 
-class NotFound(ValueError):
-    def __init__(self, model: str, id: int):
-        self.model = model
-        self.id = id
-        super().__init__(f"{model} with id {id} not found")
-
-
 class MultipleRowsUpdated(RuntimeError):
     def __init__(self, rowcount: int):
         self.rowcount = rowcount
@@ -51,17 +45,19 @@ Stage_T = Table("stage")
 Task_T = Table("task")
 
 
-def fetch_stages_with_tasks(cur: Cursor) -> list[StageDetail]:
-    cur.execute(Stage_T.select("*").get_sql())
+def fetch_stages_with_tasks(cur: Cursor, *, sorted: bool = False) -> list[StageDetail]:
+    cur = cur.execute(Stage_T.select("*").get_sql())
     stages = [StagePublic.from_row(row) for row in cur.fetchall()]
 
-    cur.execute(Task_T.select("*").get_sql())
+    cur = cur.execute(Task_T.select("*").get_sql())
     tasks = [TaskPublic.from_row(row) for row in cur.fetchall()]
 
     stage_details: list[StageDetail] = []
     for stage in stages:
         stage_tasks = [task for task in tasks if task.stage_id == stage.id]
-        stage_details.append(StageDetail(**stage.model_dump(), tasks=stage_tasks))
+        stage = StageDetail(**stage.model_dump(), tasks=stage_tasks)
+        if sorted:
+            stage_details.append(stage.sort_by_position())
     return stage_details
 
 
@@ -207,25 +203,31 @@ def update_new_stage_positions(
     cur.execute(query)
 
 
-def patch_task(cur: Cursor, task_id: int, patched_task: TaskUpdate) -> TaskPublic:
-    old_task = fetch_task_by_id(cur, task_id)
-    if not old_task:
-        raise NotFound(model="Task", id=task_id)
+def update_task_ordering(
+    cur: Cursor,
+    old_task: TaskPublic,
+    moved_task: TaskMoveUpdate,
+):
+    if old_task.stage_id == moved_task.stage_id:
+        update_same_stage_positions(
+            cur,
+            moved_task.stage_id,
+            old_task.position,
+            moved_task.position,
+        )
+    else:
+        update_old_stage_positions(cur, old_task.stage_id, old_task.position)
+        update_new_stage_positions(cur, moved_task.stage_id, moved_task.position)
 
+
+def patch_task(
+    cur: Cursor,
+    task_id: int,
+    patched_task: TaskMoveUpdate | TaskNameUpdate,
+) -> TaskPublic:
     fields = patched_task.model_dump(exclude_unset=True, exclude={"id"})
     if not fields:
         raise NoFieldsToUpdate
-
-    previous_stage_id = old_task.stage_id
-    new_stage_id = patched_task.stage_id if patched_task.stage_id else previous_stage_id
-
-    if previous_stage_id == new_stage_id:
-        update_same_stage_positions(
-            cur, previous_stage_id, old_task.position, patched_task.position
-        )
-    else:
-        update_old_stage_positions(cur, previous_stage_id, old_task.position)
-        update_new_stage_positions(cur, new_stage_id, patched_task.position)
 
     update_query = Query.update(Task_T).where(Task_T.id == task_id)
     for k, v in fields.items():
@@ -233,9 +235,6 @@ def patch_task(cur: Cursor, task_id: int, patched_task: TaskUpdate) -> TaskPubli
 
     update_query = update_query.get_sql()
     cur = cur.execute(update_query)
-
-    if cur.rowcount == 0:
-        raise NotFound(model="Task", id=task_id)
 
     if cur.rowcount > 1:
         raise MultipleRowsUpdated(cur.rowcount)

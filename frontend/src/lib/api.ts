@@ -2,13 +2,13 @@ import type { StageResponse, TaskResponse } from "$lib/types"
 
 const BACKEND_PREFIX = "http://localhost:8000"
 
-async function updateTaskRequest(
-    task_id: number,
+async function updateTaskMoveRequest(
+    taskID: number,
+    stageID: number,
     toIndex: number,
-    updatedFields: Partial<{ name: string; stage_id: number }>
 ): Promise<StageResponse[]> {
-    const body = { ...updatedFields, to_index: toIndex }
-    const res = await fetch(`${BACKEND_PREFIX}/tasks/${task_id}`, {
+    const body = { to_index: toIndex, stage_id: stageID }
+    const res = await fetch(`${BACKEND_PREFIX}/tasks/${taskID}/move`, {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json'
@@ -23,6 +23,27 @@ async function updateTaskRequest(
 
     return await res.json();
 }
+
+async function updateTaskNameRequest(
+    task_id: number,
+    name: string
+): Promise<TaskResponse> {
+    const res = await fetch(`${BACKEND_PREFIX}/tasks/${task_id}`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name: name })
+    });
+
+    if (!res.ok) {
+        const errDetail = await res.text();
+        throw new Error(`Failed to update task: ${errDetail}`);
+    }
+
+    return await res.json();
+}
+
 
 async function addTaskRequest(
     stageID: number,
@@ -62,4 +83,4 @@ async function resetDB() {
     return await res.json();
 }
 
-export { updateTaskRequest, addTaskRequest, resetDB }
+export { updateTaskMoveRequest, updateTaskNameRequest, addTaskRequest, resetDB }

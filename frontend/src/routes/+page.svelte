@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
 	import type { StageResponse, TaskResponse } from '$lib/types';
-	import { updateTaskRequest, addTaskRequest, resetDB } from '$lib/api';
+	import { updateTaskMoveRequest, addTaskRequest, resetDB } from '$lib/api';
 	import Stage from '$lib/components/Stage.svelte';
 
 	let { data }: PageProps = $props();
@@ -25,9 +25,7 @@
 		if (sourceStage.id === targetStage.id && fromIndex === toIndex) return;
 
 		try {
-			const updatedStages = await updateTaskRequest(draggedTask.id, toIndex, {
-				stage_id: targetStage.id
-			});
+			const updatedStages = await updateTaskMoveRequest(draggedTask.id, targetStage.id, toIndex);
 			stages = updatedStages;
 		} catch (err) {
 			console.error(err);
@@ -45,6 +43,10 @@
 		stage.tasks.push(newTask);
 	}
 
+	function updateTaskName(stage: StageResponse, idx: number, newName: string) {
+		stage.tasks[idx].name = newName;
+	}
+
 	async function onkeydown(event: KeyboardEvent) {
 		if (event.ctrlKey && event.key == 'r') {
 			event.preventDefault();
@@ -57,12 +59,18 @@
 
 <header>
 	<h1>My Board</h1>
+	<button class="add-stage-btn">+ Add Stage</button>
 </header>
 
 <main>
 	<div class="board">
 		{#each stages as stage}
-			<Stage {stage} {onDrop} onAddItem={(taskName: string) => addItem(stage.id, taskName)} />
+			<Stage
+				{stage}
+				{onDrop}
+				onAddItem={(taskName: string) => addItem(stage.id, taskName)}
+				{updateTaskName}
+			/>
 		{/each}
 	</div>
 </main>
@@ -83,10 +91,36 @@
 
 	header {
 		display: flex;
-		justify-content: center;
+		justify-content: space-between;
 		align-items: center;
 		height: 100px;
-		margin-bottom: 2em;
+		margin: 0 5%;
+	}
+
+	.add-stage-btn {
+		background: linear-gradient(135deg, #4a3fdb, #6d5dfc);
+		color: #fff;
+		font-size: 1.1rem;
+		padding: 0.6em 1.4em;
+		border: none;
+		border-radius: 12px;
+		cursor: pointer;
+		font-weight: 600;
+		box-shadow: 0 4px 12px rgba(80, 70, 255, 0.3);
+		transition:
+			transform 0.2s ease,
+			box-shadow 0.2s ease;
+		margin-left: 1em;
+	}
+
+	.add-stage-btn:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 6px 16px rgba(80, 70, 255, 0.5);
+	}
+
+	.add-stage-btn:active {
+		transform: translateY(0);
+		box-shadow: 0 3px 8px rgba(80, 70, 255, 0.4);
 	}
 
 	main {

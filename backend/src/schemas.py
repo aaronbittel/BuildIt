@@ -4,19 +4,7 @@ from dataclasses import field
 import sqlite3
 
 from pydantic import BaseModel as BaseSchema, Field
-
-
-# def update_model(cls: type[BaseSchema]):
-#     """
-#     Decorator that generates an Update version of a Pydantic model
-#     with all fields optional and attaches it as `Update` on the class.
-#     """
-#     annotations = {k: Optional[v] for k, v in cls.__annotations__.items()}
-#     update_cls = type(f"{cls.__name__}Update", (BaseSchema,), annotations)
-#
-#     # attach the generated class to the original for easy access
-#     cls.Update = update_cls
-#     return cls
+from typing import Self
 
 
 class StageCreate(BaseSchema):
@@ -45,9 +33,12 @@ class TaskPublic(TaskCreate):
         return cls(**dict(row))
 
 
-class TaskUpdate(BaseSchema):
-    name: str | None = None
-    stage_id: int | None = None
+class TaskNameUpdate(BaseSchema):
+    name: str
+
+
+class TaskMoveUpdate(BaseSchema):
+    stage_id: int
     position: int = Field(alias="to_index")
 
 
@@ -57,3 +48,7 @@ class StageDetail(StagePublic):
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> StageDetail:
         return cls(**dict(row))
+
+    def sort_by_position(self) -> Self:
+        self.tasks.sort(key=lambda t: t.position)
+        return self

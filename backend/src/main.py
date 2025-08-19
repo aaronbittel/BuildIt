@@ -18,15 +18,23 @@ from starlette.status import (
 from src.repository import (
     MultipleRowsUpdated,
     NoFieldsToUpdate,
-    NotFound,
+    fetch_task_by_id,
     fetch_all_tasks,
     fetch_stages_with_tasks,
     insert_stage,
     insert_task,
     patch_task,
     schema,
+    update_task_ordering,
 )
-from src.schemas import StageCreate, StageDetail, TaskCreate, TaskPublic, TaskUpdate
+from src.schemas import (
+    StageCreate,
+    StageDetail,
+    TaskCreate,
+    TaskMoveUpdate,
+    TaskNameUpdate,
+    TaskPublic,
+)
 
 logging.basicConfig()
 
@@ -55,7 +63,7 @@ def initial_data(cur: Cursor) -> None:
         cur,
         TaskCreate(
             name="add feat to update task name",
-            stage_id=backlog.id,
+            stage_id=done.id,
         ),
     )
 
@@ -71,7 +79,7 @@ def initial_data(cur: Cursor) -> None:
         cur,
         TaskCreate(
             name="add creating more stages",
-            stage_id=backlog.id,
+            stage_id=in_progess.id,
         ),
     )
 
@@ -158,29 +166,44 @@ def create_task(cur: CursorDep, newTask: TaskCreate):
     return new_task
 
 
-@app.patch("/tasks/{task_id}", response_model=list[StageDetail])
-def update_task(cur: CursorDep, task_id: int, patched_task: TaskUpdate):
+def update_task_or_fail(
+    cur: CursorDep,
+    task_id: int,
+    task: TaskMoveUpdate | TaskNameUpdate,
+) -> TaskPublic:
+    """Patch a task and commit, handling exceptions."""
     try:
-        patch_task(cur, task_id, patched_task)
-        cur.connection.commit()
+        updated_task = patch_task(cur, task_id, task)
     except NoFieldsToUpdate as e:
         raise HTTPException(HTTP_400_BAD_REQUEST, detail=str(e))
-    except NotFound as e:
-        raise HTTPException(HTTP_404_NOT_FOUND, detail=str(e))
     except MultipleRowsUpdated as e:
         raise HTTPException(HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-    stages = fetch_stages_with_tasks(cur)
-    for stage in stages:
-        stage.tasks.sort(key=lambda t: t.position)
-    return stages
+    return updated_task
+
+
+@app.patch("/tasks/{task_id}/move", response_model=list[StageDetail])
+def update_task_move(cur: CursorDep, task_id: int, moved_task: TaskMoveUpdate):
+    old_task = fetch_task_by_id(cur, task_id)
+    if not old_task:
+        raise HTTPException(
+            HTTP_404_NOT_FOUND, detail=f"Task with id {task_id} not Found"
+        )
+
+    update_task_ordering(cur, old_task, moved_task)
+    update_task_or_fail(cur, task_id, moved_task)
+    cur.connection.commit()
+
+    return fetch_stages_with_tasks(cur, sorted=True)
+
+
+@app.patch("/tasks/{task_id}", response_model=TaskPublic)
+def update_task(cur: CursorDep, task_id: int, renamed_task: TaskNameUpdate):
+    return update_task_or_fail(cur, task_id, renamed_task)
 
 
 @app.get("/stages/tasks", response_model=list[StageDetail])
 def get_stages_with_tasks(cur: CursorDep):
-    stages = fetch_stages_with_tasks(cur)
-    for stage in stages:
-        stage.tasks.sort(key=lambda t: t.position)
-    return stages
+    return fetch_stages_with_tasks(cur, sorted=True)
 
 
 @app.post("/reset")
