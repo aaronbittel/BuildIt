@@ -2,7 +2,7 @@
 	import type { PageProps } from './$types';
 	import type { StageResponse, TaskResponse } from '$lib/types';
 	import { updateTaskRequest, addTaskRequest, resetDB } from '$lib/api';
-	import Column from '$lib/components/Column.svelte';
+	import Stage from '$lib/components/Stage.svelte';
 
 	let { data }: PageProps = $props();
 	let stages = $state(data.stages);
@@ -80,7 +80,7 @@
 <main>
 	<div class="board">
 		{#each stages as stage}
-			<Column {stage} {onDrop} onAddItem={(taskName: string) => addItem(stage.id, taskName)} />
+			<Stage {stage} {onDrop} onAddItem={(taskName: string) => addItem(stage.id, taskName)} />
 		{/each}
 	</div>
 </main>

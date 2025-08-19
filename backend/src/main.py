@@ -54,16 +54,32 @@ def initial_data(cur: Cursor) -> None:
     insert_task(
         cur,
         TaskCreate(
-            name="Create table that stores stage_id to item ordering",
-            stage_id=in_progess.id,
+            name="add feat to update task name",
+            stage_id=backlog.id,
         ),
     )
 
     insert_task(
         cur,
         TaskCreate(
-            name="Order of item depends on drag position",
-            stage_id=done.id,
+            name="add feat to update stage name",
+            stage_id=backlog.id,
+        ),
+    )
+
+    insert_task(
+        cur,
+        TaskCreate(
+            name="add creating more stages",
+            stage_id=backlog.id,
+        ),
+    )
+
+    insert_task(
+        cur,
+        TaskCreate(
+            name="add removing / hidding stages",
+            stage_id=backlog.id,
         ),
     )
 
@@ -75,13 +91,6 @@ def initial_data(cur: Cursor) -> None:
         ),
     )
 
-    insert_task(
-        cur,
-        TaskCreate(
-            name="reording of tasks via drag and drop in the frontend",
-            stage_id=done.id,
-        ),
-    )
     cur.connection.commit()
 
 

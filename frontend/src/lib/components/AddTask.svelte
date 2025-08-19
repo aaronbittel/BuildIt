@@ -76,7 +76,7 @@
 		color: #f0f0f0;
 		border: 2px solid #7f7faf;
 		border-radius: 0.5em;
-		padding: 0.4em 0.6em;
+		padding: 0.5em 0;
 		font-weight: bold;
 		cursor: pointer;
 		transition: all 0.2s ease;
