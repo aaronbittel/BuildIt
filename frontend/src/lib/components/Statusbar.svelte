@@ -1,32 +1,12 @@
 <script lang="ts">
-	import { statusMessage } from '$lib/store';
-	import { onDestroy } from 'svelte';
 	import { fade } from 'svelte/transition';
+	import { getStatusbarState } from '$lib/status-bar.svelte';
 
-	let message: string | null = $state(null);
-	let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-	const unsubscribe = statusMessage.subscribe((value) => {
-		message = value;
-
-		if (timeoutId) clearTimeout(timeoutId);
-
-		if (message) {
-			timeoutId = setTimeout(() => {
-				message = null;
-				statusMessage.set(null);
-			}, 1500);
-		}
-	});
-
-	onDestroy(() => {
-		unsubscribe();
-		if (timeoutId) clearTimeout(timeoutId);
-	});
+	const statusbarState = getStatusbarState();
 </script>
 
-{#if message}
-	<p in:fade out:fade>{message}</p>
+{#if statusbarState.isShowing}
+	<p in:fade out:fade>{statusbarState.message}</p>
 {/if}
 
 <style>

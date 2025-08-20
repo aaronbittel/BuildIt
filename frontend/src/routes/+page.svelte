@@ -6,6 +6,7 @@
 	import { computeCornerLabels } from '$lib/utils';
 	import { isDragging, statusMessage } from '$lib/store';
 	import Deadzone from '$lib/components/Deadzone.svelte';
+	import { getStatusbarState } from '$lib/status-bar.svelte';
 
 	let { data }: PageProps = $props();
 	let stages = $state(data.stages);
@@ -14,6 +15,8 @@
 		const names = stages.map((stage) => stage.name);
 		return computeCornerLabels(names);
 	});
+
+	const statusbarState = getStatusbarState();
 
 	async function onDrop(
 		draggedTask: TaskResponse,
@@ -25,7 +28,7 @@
 		const targetStage = stages.find((c) => c.id === targetID);
 
 		if (!sourceStage || !targetStage)
-			throw new Error('somehow there are at least one stage id was not found');
+			throw new Error('somehow there are at least one stage id that was not found');
 
 		const fromIndex = sourceStage.tasks.findIndex((t) => t.id === draggedTask.id);
 
@@ -67,7 +70,7 @@
 			event.preventDefault();
 			stages = await resetDBRequest();
 			if (stages !== undefined) {
-				statusMessage.set("Loaded db snapshot 'Current'");
+				statusbarState.show("Loaded db snapshot 'Current'");
 			}
 		}
 	}
