@@ -14,13 +14,13 @@ from src.schemas import (
     TaskMoveUpdate,
 )
 
-schema = """
-CREATE TABLE stage (
+DEFAULT_SCHEMA = """
+CREATE TABLE IF NOT EXISTS stage (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name STRING(30) NOT NULL UNIQUE
 );
 
-CREATE TABLE task (
+CREATE TABLE IF NOT EXISTS task (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name STRING NOT NULL,
     stage_id INT NOT NULL,
@@ -46,6 +46,39 @@ Task_T = Table("task")
 
 
 def fetch_stages_with_tasks(cur: Cursor, *, sorted: bool = False) -> list[StageDetail]:
+    # stmt = """
+    # SELECT
+    #     s.id AS stage_id,
+    #     s.name AS stage_name,
+    #     t.id AS task_id,
+    #     t.name AS task_name,
+    #     t.position AS task_position
+    # FROM task t
+    # LEFT JOIN stage s ON t.stage_id = s.id
+    # ORDER BY s.id, t.position
+    # """
+    #
+    # stages: list[StageDetail] = []
+    # for row in cur.execute(stmt).fetchall():
+    #     task = TaskPublic(
+    #         id=row["task_id"],
+    #         name=row["task_name"],
+    #         stage_id=row["stage_id"],
+    #         position=row["task_position"],
+    #     )
+    #     for i, stage in enumerate(stages):
+    #         if row["stage_id"] == stage.id:
+    #             stages[i].tasks.append(task)
+    #             break
+    #     else:
+    #         stages.append(
+    #             StageDetail(
+    #                 id=row["stage_id"],
+    #                 name=row["stage_name"],
+    #                 tasks=[task],
+    #             )
+    #         )
+
     cur = cur.execute(Stage_T.select("*").get_sql())
     stages = [StagePublic.from_row(row) for row in cur.fetchall()]
 

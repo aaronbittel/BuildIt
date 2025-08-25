@@ -1,23 +1,20 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
+	import { getStagesState } from '$lib/stages.svelte';
+	import type { TaskResponse } from '$lib/types';
 	import { tick } from 'svelte';
 
-	let newTaskText: string = $state('');
+	let newTaskName: string = $state('');
 	let showTaskInput: boolean = $state(false);
 
 	type Props = {
 		cornerLabel: string;
-		onAddItem: (taskName: string) => void;
+		stageID: number;
 	};
 
-	const { cornerLabel, onAddItem }: Props = $props();
+	const stagesStage = getStagesState();
 
-	function handleAddTaskClick() {
-		showTaskInput = !showTaskInput;
-		if (newTaskText === '') return;
-
-		onAddItem(newTaskText);
-		resetTextArea();
-	}
+	const { cornerLabel, stageID }: Props = $props();
 
 	async function handleKeydown(event: KeyboardEvent) {
 		if (event.ctrlKey && event.key.toUpperCase() === cornerLabel) {
@@ -28,44 +25,49 @@
 			document.getElementById(`${cornerLabel}-textarea`)?.focus();
 		}
 	}
-
-	function handleEnter(event: KeyboardEvent) {
-		if (event.key === 'Enter' && !event.shiftKey) {
-			event.preventDefault(); // prevent newline
-			handleAddTaskClick();
-			return;
-		}
-		if (event.key === 'Escape') {
-			resetTextArea();
-			return;
-		}
-	}
-
-	function resetTextArea() {
-		showTaskInput = false;
-		newTaskText = '';
-	}
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
 
-{#if showTaskInput}
+<form
+	method="POST"
+	action="?/addTask"
+	use:enhance={({ formData }) => {
+		const name = formData.get('name') || '';
+		if (name === '') {
+			showTaskInput = !showTaskInput;
+			return;
+		}
+		formData.append('stageID', String(stageID));
+		return async ({ result, update }) => {
+			if (result.type === 'success') {
+				const task = result.data as TaskResponse;
+				stagesStage.addTask(stageID, task);
+			}
+			showTaskInput = false;
+			newTaskName = '';
+			update();
+		};
+	}}
+>
 	<div class="add-task">
-		<textarea
-			id={`${cornerLabel}-textarea`}
-			bind:value={newTaskText}
-			placeholder="New task"
-			onkeydown={(e) => handleEnter(e)}
-			onblur={() => handleAddTaskClick()}
-		></textarea>
+		{#if showTaskInput}
+			<textarea
+				id={`${cornerLabel}-textarea`}
+				name="name"
+				bind:value={newTaskName}
+				placeholder="New task"
+				class="text-input"
+			></textarea>
+		{/if}
+		<button class="btn-add-card" type="submit">
+			<svg viewBox="0 0 24 24">
+				<path d="M12 5v14m-7-7h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+			</svg>
+			<span>Add another Card</span>
+		</button>
 	</div>
-{/if}
-<button class="btn-add-card" onclick={() => handleAddTaskClick()}>
-	<svg viewBox="0 0 24 24">
-		<path d="M12 5v14m-7-7h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-	</svg>
-	<span>Add another Card</span>
-</button>
+</form>
 
 <style>
 	.btn-add-card {
@@ -105,7 +107,7 @@
 		gap: 0.5em;
 	}
 
-	.add-task textarea {
+	.text-input {
 		font-family: inherit;
 		color: inherit;
 		line-height: 1.2;
@@ -115,7 +117,7 @@
 		padding: 0.5em;
 	}
 
-	.add-task textarea::placeholder {
+	.text-input::placeholder {
 		color: #dcdcff;
 	}
 </style>

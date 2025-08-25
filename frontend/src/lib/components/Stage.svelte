@@ -1,14 +1,16 @@
 <script lang="ts">
-	import AddTask from './AddTask.svelte';
 	import type { StageResponse, TaskResponse } from '$lib/types';
 	import { updateTaskNameRequest } from '$lib/api';
 	import { tick } from 'svelte';
 	import { isDragging } from '$lib/store';
+	import AddTask from './AddTask.svelte';
+	import { INACTIVE } from '$lib/utils';
+	import { getStagesState } from '$lib/stages.svelte';
+	import { enhance } from '$app/forms';
 
 	type Props = {
 		stage: StageResponse;
-		onDrop: (task: TaskResponse, sourceID: number, targetID: number, toIndex: number) => void;
-		onAddItem: (taskName: string) => void;
+		onDrop: (task: TaskResponse, sourceID: number, targetID: number) => void;
 		updateTaskName: (stage: StageResponse, idx: number, newName: string) => void;
 		cornerLabel: string;
 	};
@@ -17,18 +19,23 @@
 	let editingIdx: number | null = $state(null);
 	let isDragover = $state(false);
 
-	const { stage, onDrop, onAddItem, updateTaskName, cornerLabel }: Props = $props();
+	const { stage, onDrop, updateTaskName, cornerLabel }: Props = $props();
+
+	let stageName = $state(stage.name);
+
+	const stagesState = getStagesState();
 
 	let textarea: HTMLTextAreaElement | null = $state(null);
 
-	function resizeTextarea() {
+	function resizeTextarea(textarea: HTMLTextAreaElement | null) {
 		if (!textarea) return;
 		textarea.style.height = 'auto';
 		textarea.style.height = textarea.scrollHeight + 'px';
 	}
 
+	// FIXME: Does not work
 	$effect(() => {
-		resizeTextarea();
+		resizeTextarea(textarea);
 	});
 
 	async function handleDoubleClick(idx: number) {
@@ -43,25 +50,25 @@
 		textarea?.focus();
 	}
 
-	function handleDragStart(event: DragEvent, task: TaskResponse, sourceID: number) {
+	function handleDragStartTask(event: DragEvent, task: TaskResponse) {
 		isDragging.set(true);
-		event.dataTransfer?.setData(
-			'application/json',
-			JSON.stringify({ task: task, sourceID: sourceID })
-		);
+		event.stopPropagation(); // so stages' onDragStart does not override this
+		event.dataTransfer?.setData('application/json', JSON.stringify({ type: 'task', task: task }));
 	}
 
-	function handleDragEnd() {
-		isDragging.set(false);
-	}
-
-	function handleDropEvent(event: DragEvent) {
+	function handleOnStageDrop(event: DragEvent) {
 		event.preventDefault();
+		const raw = event.dataTransfer?.getData('application/json');
+		if (!raw) return;
+
+		const { type } = JSON.parse(raw) as { type: string };
+		if (type !== 'task') return;
 
 		if (!container) return;
 		const taskElements = container.querySelectorAll<HTMLElement>('.stage-task');
 		const heights = Array.from(taskElements).map((item) => item.offsetTop);
 
+		// FIXME: This is still pretty buggy
 		let i = 0;
 		for (; i < heights.length; i++) {
 			if (heights[i] >= event.clientY) {
@@ -69,10 +76,8 @@
 			}
 		}
 
-		const raw = event.dataTransfer?.getData('application/json');
-		if (!raw) return;
-		const { task: task, sourceID: sourceID } = JSON.parse(raw);
-		onDrop(task, sourceID, stage.id, i);
+		const { task } = JSON.parse(raw);
+		onDrop(task, stage.id, i);
 	}
 
 	function isHovering(event: DragEvent) {
@@ -91,6 +96,12 @@
 		updateTaskName(stage, editingIdx, updated_task.name);
 		editingIdx = null;
 	}
+
+	function handleDragStartStage(event: DragEvent, stageID: number) {
+		isDragging.set(true);
+
+		event.dataTransfer?.setData('application/json', JSON.stringify({ type: 'stage', stageID }));
+	}
 </script>
 
 <section
@@ -98,12 +109,15 @@
 	class="stage"
 	role="list"
 	class:drag-over={isDragover}
+	draggable="true"
+	ondragstart={(e) => handleDragStartStage(e, stage.id)}
+	ondragend={() => isDragging.set(false)}
 	ondragover={(e) => {
 		e.preventDefault();
 	}}
 	ondrop={(e) => {
 		isDragover = false;
-		handleDropEvent(e);
+		handleOnStageDrop(e);
 	}}
 	ondragenter={(e) => {
 		e.preventDefault();
@@ -115,36 +129,55 @@
 		}
 	}}
 >
-	<div class="stage-header">
-		<h2 class="stage-name">{stage.name}</h2>
-		<span class="corner-label">{cornerLabel}</span>
-	</div>
-	<ul class="stage-tasks">
-		{#each stage.tasks as task, idx}
-			{#if idx == editingIdx}
-				<!-- FIXME: id -->
-				<textarea
-					id={`${cornerLabel}-textarea`}
-					bind:this={textarea}
-					bind:value={task.name}
-					onfocus={() => (editingIdx = idx)}
-					onblur={() => handleBlur()}
-				></textarea>
-			{:else}
-				<li
-					class="stage-task"
-					role="listitem"
-					draggable="true"
-					ondragstart={(e) => handleDragStart(e, task, stage.id)}
-					ondragend={handleDragEnd}
-					ondblclick={() => handleDoubleClick(idx)}
-				>
-					{task.name}
-				</li>
-			{/if}
-		{/each}
-		<AddTask {cornerLabel} {onAddItem} />
-	</ul>
+	{#if stage.id === INACTIVE}
+		<div class="stage-header">
+			<form
+				method="POST"
+				action="?/addStage"
+				use:enhance={() => {
+					return async ({ result, update }) => {
+						if (result.type === 'success') {
+							stagesState.updateStage(stage.id, result.data?.data as StageResponse);
+						}
+						update();
+					};
+				}}
+			>
+				<input name="name" class="stage-name-input" bind:value={stageName} placeholder="Default" />
+			</form>
+		</div>
+	{:else}
+		<div class="stage-header">
+			<h2 class="stage-name">{stage.name}</h2>
+			<span class="corner-label">{cornerLabel}</span>
+		</div>
+		<ul class="stage-tasks">
+			{#each stage.tasks as task, idx}
+				{#if idx == editingIdx}
+					<!-- FIXME: id -->
+					<textarea
+						id={`${cornerLabel}-textarea`}
+						bind:this={textarea}
+						bind:value={task.name}
+						onfocus={() => (editingIdx = idx)}
+						onblur={() => handleBlur()}
+					></textarea>
+				{:else}
+					<li
+						class="stage-task"
+						role="listitem"
+						draggable="true"
+						ondragstart={(e) => handleDragStartTask(e, task)}
+						ondragend={() => isDragging.set(false)}
+						ondblclick={() => handleDoubleClick(idx)}
+					>
+						{task.name}
+					</li>
+				{/if}
+			{/each}
+			<AddTask {cornerLabel} stageID={stage.id} />
+		</ul>
+	{/if}
 </section>
 
 <style>
@@ -227,5 +260,53 @@
 		padding: 0.5em;
 		overflow: hidden;
 		resize: none;
+	}
+
+	.stage-name-input {
+		width: 100%;
+		font-size: 2em;
+		font-weight: bold;
+		border: none;
+		border: 2px dashed #7f7faf;
+		letter-spacing: 1px;
+		text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+		background: rgba(127, 127, 175, 0.15);
+		padding: 0.2em 0.5em;
+		border-radius: 0.2em;
+		text-align: center;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		color: inherit;
+		font-family: inherit;
+		outline: none;
+		transition: all 0.2s ease;
+		cursor: text;
+	}
+
+	.stage-name-input::placeholder {
+		color: rgba(127, 127, 175, 0.6);
+		font-style: italic;
+	}
+
+	.stage-name-input:hover {
+		background: rgba(127, 127, 175, 0.22);
+	}
+
+	.stage-name-input:focus {
+		border: 2px solid #7f7faf;
+		box-shadow: 0 2px 8px rgba(127, 127, 175, 0.4);
+		background: rgba(127, 127, 175, 0.3);
+	}
+
+	.stage-name-input::before {
+		content: '✎';
+		position: absolute;
+		left: 0.5em;
+		top: 50%;
+		transform: translateY(-50%);
+		color: rgba(127, 127, 175, 0.5);
+		font-size: 0.8em;
+		pointer-events: none;
 	}
 </style>

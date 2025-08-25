@@ -27,7 +27,7 @@ def load_schema_into_db(request: Request, db_path: Path, schema: str) -> None:
 
     conn = init_conn(db_path)
     cur = conn.cursor()
-    cur = create_tables(cur, schema)
+    cur = init_schema(cur, schema)
 
     request.app.state.conn = conn
     request.app.state.cur = cur
@@ -39,7 +39,7 @@ def init_conn(path: Path) -> Connection:
     return conn
 
 
-def create_tables(cur: Cursor, schema: str) -> Cursor:
+def init_schema(cur: Cursor, schema: str) -> Cursor:
     """Initialize the database schema and return a cursor."""
     cur.executescript(schema)
     cur.connection.commit()

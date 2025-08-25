@@ -2,6 +2,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+import sqlite3
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
@@ -11,13 +12,14 @@ from starlette.status import (
     HTTP_204_NO_CONTENT,
     HTTP_400_BAD_REQUEST,
     HTTP_404_NOT_FOUND,
+    HTTP_409_CONFLICT,
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 
 from src.dev_utils import DB_SNAPSHOTS_PATH, router
 from src.helpers import (
     CursorDep,
-    create_tables,
+    init_schema,
     init_conn,
     load_schema_into_db,
 )
@@ -28,12 +30,14 @@ from src.repository import (
     fetch_all_tasks,
     fetch_stages_with_tasks,
     fetch_task_by_id,
+    insert_stage,
     insert_task,
     patch_task,
-    schema,
+    DEFAULT_SCHEMA,
     update_task_ordering,
 )
 from src.schemas import (
+    StageCreate,
     StageDetail,
     TaskCreate,
     TaskMoveUpdate,
@@ -51,11 +55,9 @@ DB_PATH = Path(_db_path)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    path_exists = DB_PATH.exists()
     conn = init_conn(DB_PATH)
     cur = conn.cursor()
-    if not path_exists:
-        cur = create_tables(cur, schema)
+    cur = init_schema(cur, DEFAULT_SCHEMA)
 
     app.state.conn = conn
     app.state.cur = cur
@@ -140,7 +142,7 @@ def get_stages_with_tasks(cur: CursorDep):
 @app.post("/reset")
 def reset_db(request: Request):
     current = DB_SNAPSHOTS_PATH / "current.sql"
-    snapshot = current.read_text() if current.exists() else schema
+    snapshot = current.read_text() if current.exists() else DEFAULT_SCHEMA
 
     load_schema_into_db(request, DB_PATH, snapshot)
     return {"message": f"Successfully reset db {DB_PATH}"}
@@ -153,3 +155,14 @@ def delete_task(cur: CursorDep, task_id: int):
         raise HTTPException(HTTP_404_NOT_FOUND, detail="Task not found")
 
     assert rowcount == 1, "Noway4u_sir"
+
+
+@app.post("/stages", status_code=HTTP_201_CREATED)
+def create_stage(cur: CursorDep, stage: StageCreate):
+    try:
+        created_stage = insert_stage(cur, stage)
+    except sqlite3.IntegrityError:
+        logging.exception("stage name must be unique")
+        raise HTTPException(HTTP_409_CONFLICT, detail="Stage name must be unique")
+    cur.connection.commit()
+    return StageDetail(**created_stage.model_dump(), tasks=[])

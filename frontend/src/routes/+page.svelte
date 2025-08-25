@@ -1,34 +1,39 @@
 <script lang="ts">
-	import type { PageProps } from './$types';
 	import type { StageResponse, TaskResponse } from '$lib/types';
-	import { updateTaskMoveRequest, addTaskRequest, resetDBRequest } from '$lib/api';
+	import type { PageProps } from './$types';
+
 	import Stage from '$lib/components/Stage.svelte';
-	import { computeCornerLabels } from '$lib/utils';
-	import { isDragging, statusMessage } from '$lib/store';
 	import Deadzone from '$lib/components/Deadzone.svelte';
+	import AdminPanel from '$lib/components/AdminPanel.svelte';
+
+	import { updateTaskMoveRequest, resetDBRequest } from '$lib/api';
+	import { isDragging } from '$lib/store';
 	import { getStatusbarState } from '$lib/status-bar.svelte';
+	import { computeCornerLabels } from '$lib/utils';
+	import { setStagesState, getStagesState } from '$lib/stages.svelte';
 
 	let { data }: PageProps = $props();
-	let stages = $state(data.stages);
+	setStagesState(data.stages);
+	const stagesState = getStagesState();
+
+	let showAdmin = $state(false);
 
 	let cornorLabels: string[] = $derived.by(() => {
-		const names = stages.map((stage) => stage.name);
+		const names = data.stages.map((stage) => stage.name);
 		return computeCornerLabels(names);
 	});
 
 	const statusbarState = getStatusbarState();
 
-	async function onDrop(
-		draggedTask: TaskResponse,
-		sourceID: number,
-		targetID: number,
-		toIndex: number
-	) {
-		const sourceStage = stages.find((c) => c.id === sourceID);
-		const targetStage = stages.find((c) => c.id === targetID);
+	async function onDrop(draggedTask: TaskResponse, targetStageID: number, toIndex: number) {
+		const sourceID = draggedTask.stage_id;
+		const sourceStage = data.stages.find((stage) => stage.id === sourceID);
+		const targetStage = data.stages.find((stage) => stage.id === targetStageID);
 
 		if (!sourceStage || !targetStage)
-			throw new Error('somehow there are at least one stage id that was not found');
+			throw new Error(
+				`somehow there are at least one stage id that was not found: sourceStage=${JSON.stringify(sourceStage)}, targetStage=${JSON.stringify(targetStage)}`
+			);
 
 		const fromIndex = sourceStage.tasks.findIndex((t) => t.id === draggedTask.id);
 
@@ -37,28 +42,11 @@
 
 		try {
 			const updatedStages = await updateTaskMoveRequest(draggedTask.id, targetStage.id, toIndex);
-			stages = updatedStages;
+			stagesState.sync(updatedStages);
 		} catch (err) {
 			console.error(err);
 			return;
 		}
-	}
-
-	async function addItem(stageID: number, taskName: string) {
-		const stage = stages.find((s) => s.id === stageID);
-		if (!stage) return;
-
-		const newTask = await addTaskRequest(stageID, taskName);
-		if (!newTask) return;
-
-		stage.tasks.push(newTask);
-	}
-
-	function handleTaskDeleted(taskId: number) {
-		stages = stages.map((stage) => ({
-			...stage,
-			tasks: stage.tasks.filter((task) => task.id !== taskId)
-		}));
 	}
 
 	function updateTaskName(stage: StageResponse, idx: number, newName: string) {
@@ -68,39 +56,41 @@
 	async function onkeydown(event: KeyboardEvent) {
 		if (event.ctrlKey && event.key == 'r') {
 			event.preventDefault();
-			stages = await resetDBRequest();
-			if (stages !== undefined) {
+			data.stages = await resetDBRequest();
+			if (data.stages !== undefined) {
 				statusbarState.show("Loaded db snapshot 'Current'");
 			}
 		}
+	}
+
+	function handleAddStage() {
+		stagesState.addTempStage();
 	}
 </script>
 
 <svelte:window {onkeydown} />
 
 <header>
+	<button class="admin-panel-btn" onclick={() => (showAdmin = !showAdmin)}> ⚙ Admin </button>
 	<h1>My Board</h1>
-	<button class="add-stage-btn">+ Add Stage</button>
+	<button onclick={handleAddStage} class="add-stage-btn">+ Add Stage</button>
 </header>
-
 <main>
 	<div class="board-wrapper">
 		<div class="board">
-			{#each stages as stage, idx}
-				<Stage
-					{stage}
-					{onDrop}
-					onAddItem={(taskName: string) => addItem(stage.id, taskName)}
-					{updateTaskName}
-					cornerLabel={cornorLabels[idx]}
-				/>
+			{#each stagesState.stages as stage, idx}
+				<Stage {stage} {onDrop} {updateTaskName} cornerLabel={cornorLabels[idx]} />
 			{/each}
 		</div>
 	</div>
 </main>
 
+{#if showAdmin}
+	<AdminPanel currentSnapshot={data.currentSnapshot} allSnapshots={data.allSnapshots} />
+{/if}
+
 {#if $isDragging}
-	<Deadzone {handleTaskDeleted} />
+	<Deadzone />
 {/if}
 
 <style>
@@ -119,9 +109,8 @@
 
 	header {
 		display: flex;
-		justify-content: center;
+		justify-content: space-between;
 		align-items: center;
-		position: relative;
 		height: 100px;
 		margin: 2vh 5vh;
 	}
@@ -151,8 +140,6 @@
 	}
 
 	.add-stage-btn {
-		position: absolute;
-		right: 0;
 		background: linear-gradient(135deg, #4a3fdb, #6d5dfc);
 		color: #fff;
 		font-size: 1.1rem;
@@ -165,7 +152,6 @@
 		transition:
 			transform 0.2s ease,
 			box-shadow 0.2s ease;
-		margin-left: 1em;
 	}
 
 	.add-stage-btn:hover {
@@ -176,5 +162,30 @@
 	.add-stage-btn:active {
 		transform: translateY(0);
 		box-shadow: 0 3px 8px rgba(80, 70, 255, 0.4);
+	}
+
+	.admin-panel-btn {
+		background: linear-gradient(135deg, #6d5dfc, #9b86f8);
+		color: #fff;
+		font-size: 1rem;
+		padding: 0.6em 1.4em;
+		border: none;
+		border-radius: 12px;
+		cursor: pointer;
+		font-weight: 600;
+		box-shadow: 0 4px 12px rgba(155, 134, 248, 0.3);
+		transition:
+			transform 0.2s ease,
+			box-shadow 0.2s ease;
+	}
+
+	.admin-panel-btn:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 6px 16px rgba(155, 134, 248, 0.5);
+	}
+
+	.admin-panel-btn:active {
+		transform: translateY(0);
+		box-shadow: 0 3px 8px rgba(155, 134, 248, 0.4);
 	}
 </style>

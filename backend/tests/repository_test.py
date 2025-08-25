@@ -6,13 +6,13 @@ import pytest
 from fastapi.testclient import TestClient
 from starlette.status import HTTP_200_OK
 
-from src.main import app, create_tables, init_conn
+from src.main import app, init_schema, init_conn
 from src.repository import (
     fetch_all_tasks_by_stage_id,
     fetch_task_by_id,
     insert_stage,
     insert_task,
-    schema,
+    DEFAULT_SCHEMA,
 )
 from src.schemas import StageCreate, StagePublic, TaskCreate, TaskPublic
 
@@ -29,7 +29,7 @@ def client_fixture(cur: Cursor) -> Generator[TestClient, None, None]:
 def cursor_fixture() -> Generator[Cursor, None, None]:
     conn = init_conn(Path(":memory:"))
     cur = conn.cursor()
-    cur = create_tables(cur, schema)
+    cur = init_schema(cur, DEFAULT_SCHEMA)
 
     yield cur
 

@@ -1,14 +1,11 @@
 <script lang="ts">
 	import { deleteTaskRequest } from '$lib/api';
 	import { fade } from 'svelte/transition';
+	import { getStagesState } from '$lib/stages.svelte';
 
 	let isDragover = $state(false);
 
-	type Props = {
-		handleTaskDeleted: (taskId: number) => void;
-	};
-
-	let { handleTaskDeleted }: Props = $props();
+	const stagesState = getStagesState();
 
 	function ondragover(event: DragEvent) {
 		event.preventDefault();
@@ -17,14 +14,25 @@
 	async function ondrop(event: DragEvent) {
 		isDragover = false;
 		const raw = event.dataTransfer?.getData('application/json');
+
 		if (!raw) {
 			console.error('dragged item had no data attached');
 			return;
 		}
-		const { task: task } = JSON.parse(raw);
+		const data = JSON.parse(raw);
 
-		await deleteTaskRequest(task.id);
-		handleTaskDeleted(task.id);
+		if (data.type == 'task') {
+			const { task } = data;
+			const ok = await deleteTaskRequest(task.id);
+			if (ok) {
+				// FIXME: handle error case
+				stagesState.removeTask(task.stage_id, task.id);
+			}
+		} else if (data.type == 'stage') {
+			const { stageID } = data;
+		} else {
+			console.error('unknown drag type', data);
+		}
 	}
 
 	function ondragenter(event: DragEvent) {
