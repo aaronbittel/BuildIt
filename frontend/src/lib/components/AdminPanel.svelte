@@ -2,22 +2,28 @@
 	import type { SnapshotResponse } from '$lib/types';
 	import { enhance } from '$app/forms';
 	import { getStatusbarState } from '$lib/status-bar.svelte';
+	import { showAdminPanel } from '$lib/store';
+	import { fly } from 'svelte/transition';
+	import { cubicIn, cubicOut } from 'svelte/easing';
 
 	type Props = {
 		currentSnapshot: SnapshotResponse | null;
 		allSnapshots: SnapshotResponse[];
 	};
-
 	const { currentSnapshot, allSnapshots }: Props = $props();
 
 	let selectedSnapshot = $state(currentSnapshot?.name ?? allSnapshots[0]?.name ?? null);
 	const statusBarState = getStatusbarState();
 </script>
 
-<section class="panel">
+<section
+	class="panel"
+	in:fly={{ x: 40, duration: 250, easing: cubicOut }}
+	out:fly={{ x: 40, duration: 250, easing: cubicIn }}
+>
 	<header class="panel__header">
 		<h2>Database Snapshots</h2>
-		<button class="icon-btn" title="Close">✕</button>
+		<button class="icon-btn" title="Close" onclick={() => showAdminPanel.set(false)}>✕</button>
 	</header>
 	<p class={currentSnapshot ? '' : 'text-gray'}>
 		Currently active: <strong>{currentSnapshot?.name ?? 'None'}</strong>
@@ -114,18 +120,6 @@
 		padding: 1.4rem;
 		display: grid;
 		gap: 1.2rem;
-		animation: slideIn 0.3s ease forwards;
-	}
-
-	@keyframes slideIn {
-		from {
-			opacity: 0;
-			transform: translateX(40px);
-		}
-		to {
-			opacity: 1;
-			transform: translateX(0);
-		}
 	}
 
 	.panel__header {

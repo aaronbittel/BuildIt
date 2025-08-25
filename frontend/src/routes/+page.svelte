@@ -7,7 +7,7 @@
 	import AdminPanel from '$lib/components/AdminPanel.svelte';
 
 	import { updateTaskMoveRequest, resetDBRequest } from '$lib/api';
-	import { isDragging } from '$lib/store';
+	import { isDragging, showAdminPanel } from '$lib/store';
 	import { getStatusbarState } from '$lib/status-bar.svelte';
 	import { computeCornerLabels } from '$lib/utils';
 	import { setStagesState, getStagesState } from '$lib/stages.svelte';
@@ -15,8 +15,6 @@
 	let { data }: PageProps = $props();
 	setStagesState(data.stages);
 	const stagesState = getStagesState();
-
-	let showAdmin = $state(false);
 
 	let cornorLabels: string[] = $derived.by(() => {
 		const names = data.stages.map((stage) => stage.name);
@@ -71,7 +69,9 @@
 <svelte:window {onkeydown} />
 
 <header>
-	<button class="admin-panel-btn" onclick={() => (showAdmin = !showAdmin)}> ⚙ Admin </button>
+	<button class="admin-panel-btn" onclick={() => showAdminPanel.set(!$showAdminPanel)}>
+		⚙ Admin
+	</button>
 	<h1>My Board</h1>
 	<button onclick={handleAddStage} class="add-stage-btn">+ Add Stage</button>
 </header>
@@ -85,7 +85,7 @@
 	</div>
 </main>
 
-{#if showAdmin}
+{#if $showAdminPanel}
 	<AdminPanel currentSnapshot={data.currentSnapshot} allSnapshots={data.allSnapshots} />
 {/if}
 
