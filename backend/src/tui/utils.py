@@ -3,6 +3,8 @@ import curses
 from curses import textpad
 import _curses
 from functools import wraps
+import logging
+from pathlib import Path
 
 ROUNDED_TOPLEFT = "╭"
 ROUNDED_TOPRIGHT = "╮"
@@ -21,18 +23,7 @@ def border(win: curses.window, title: str | None = None) -> curses.window:
     org_y, org_x = win.getbegyx()
 
     height, width = org_height + 2, org_width + 2
-    try:
-        border_win = curses.newwin(height, width, org_y - 1, org_x - 1)
-    except _curses.error:
-        with debug_block():
-            debug(f"{height=}")
-            debug(f"{width=}")
-            debug(f"{org_y-1=}")
-            debug(f"{org_x-1=}")
-        import time
-
-        time.sleep(3)
-        raise
+    border_win = curses.newwin(height, width, org_y - 1, org_x - 1)
 
     border_win.addstr(
         0, 0, ROUNDED_TOPLEFT + HORIZONTAL_BAR * (width - 2) + ROUNDED_TOPRIGHT
@@ -96,42 +87,6 @@ def title(win: curses.window, cols: int, text: str) -> None:
     if cols < len(text):
         return
     win.addstr(0, cols // 2 - len(text) // 2, text, curses.A_BOLD | curses.A_UNDERLINE)
-
-
-_DEBUG_BUFFER: list[str] | None = None
-_DEBUG_WINDOW: curses.window | None = None
-
-
-def debug(msg: str) -> None:
-    global _DEBUG_BUFFER
-    if _DEBUG_BUFFER is None:
-        win = curses.newwin(1, curses.COLS, curses.LINES - 1, 0)
-        win.addstr(str(msg))
-        win.refresh()
-        return
-    _DEBUG_BUFFER.append(msg)
-
-
-@contextmanager
-def debug_block():
-    global _DEBUG_BUFFER
-    global _DEBUG_WINDOW
-
-    _DEBUG_BUFFER = []
-    if _DEBUG_WINDOW is not None:
-        _DEBUG_WINDOW.clear()
-        _DEBUG_WINDOW.refresh()
-
-    try:
-        yield
-    finally:
-        _DEBUG_WINDOW = curses.newwin(
-            len(_DEBUG_BUFFER), curses.COLS, curses.LINES - len(_DEBUG_BUFFER), 0
-        )
-        for i, text in enumerate(_DEBUG_BUFFER):
-            _DEBUG_WINDOW.addstr(i, 0, text)
-        _DEBUG_WINDOW.refresh()
-        _DEBUG_BUFFER = None
 
 
 @contextmanager

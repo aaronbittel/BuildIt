@@ -1,12 +1,19 @@
 import curses
+from src.tui import utils
 from src.tui.stage_view import Stage
 from src.tui.stage_view_list import StageViewList
 from src.tui.utils import (
-    debug,
-    debug_block,
     get_input,
     hide_cursor,
     title,
+)
+import logging
+
+logging.basicConfig(
+    filename="app.log",
+    filemode="w",
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(message)s",
 )
 
 
@@ -63,8 +70,11 @@ def main(stdscr: curses.window):
                 width=edit_width,
             )
             if got != "":
-                stage_view_list.add(got)
+                stage_view_list.add_task(got)
         elif key == ord("e"):
+            # FIXME: handle this better
+            if len(stage_view_list.selected.stage.tasks) == 0:
+                continue
             _, cols = stdscr.getmaxyx()
             x = max(cols // 2 - edit_width // 2, 1)
             got = get_input(
@@ -79,6 +89,8 @@ def main(stdscr: curses.window):
             stage_view_list.next_task()
         elif key == ord("k"):
             stage_view_list.prev_task()
+        elif key == ord("x"):
+            stage_view_list.remove_task()
         elif key == ord("\t"):
             stage_view_list.next_stage()
         elif key == curses.KEY_RESIZE:

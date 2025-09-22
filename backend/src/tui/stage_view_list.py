@@ -1,3 +1,4 @@
+import logging
 from src.tui.stage_view import Stage, StageView
 
 
@@ -29,8 +30,8 @@ class StageViewList:
         self.resize(cols)
 
     def draw(self) -> None:
-        for stage in self._dirty_views:
-            stage.draw()
+        for view in self._dirty_views:
+            view.draw()
         self._dirty_views.clear()
 
     def resize(self, cols: int) -> None:
@@ -70,9 +71,15 @@ class StageViewList:
         self._dirty_views.add(self.selected)
         return self.selected.update(task)
 
-    def add(self, task: str) -> None:
+    def add_task(self, task: str) -> None:
         self._dirty_views.add(self.selected)
         self.selected.add(task)
+        self.resize(self.cols)
+
+    def remove_task(self) -> None:
+        self._dirty_views.add(self.selected)
+        self.selected.remove()
+        logging.debug(self.selected.selected)
         self.resize(self.cols)
 
     def next_task(self) -> None:

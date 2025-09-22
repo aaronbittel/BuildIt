@@ -1,14 +1,15 @@
 from contextlib import suppress
 import curses
+import logging
+import utils
 import _curses
-from collections import namedtuple
-from logging import debug
-from src.tui.utils import (
-    ELLIPSIS,
-)
+from typing import NamedTuple
+from src.tui.utils import ELLIPSIS
 
 
-Stage = namedtuple("Stage", ["name", "tasks"])
+class Stage(NamedTuple):
+    name: str
+    tasks: list[str]
 
 
 class StageView:
@@ -94,10 +95,7 @@ class StageView:
         color = curses.color_pair(1) if self.highlighted else curses.color_pair(0)
         self._win.addch(0, 0, curses.ACS_ULCORNER, color)
         self._win.hline(0, 1, curses.ACS_HLINE, self.width - 2, color)
-        try:
-            self._win.addch(0, self.width - 1, curses.ACS_URCORNER, color)
-        except:
-            debug(f"{self.width - 1}")
+        self._win.addch(0, self.width - 1, curses.ACS_URCORNER, color)
 
         for y in range(1, self.content_height + 1):
             self._win.addch(y, 0, curses.ACS_VLINE, color)
@@ -115,12 +113,15 @@ class StageView:
 
     def add(self, task: str) -> None:
         self.stage.tasks.append(task)
-        if len(self.stage.tasks) > self.content_height:
-            self._calculate_heights()
-            self._win = curses.newwin(self.view_height, self.width, self.y, self.x)
+
+    def remove(self) -> None:
+        if len(self.stage.tasks) == 0:
+            return
+        self.stage.tasks.pop(self.selected)
+        self.selected = max(self.selected - 1, 0)
 
     def next(self) -> None:
-        self.selected = min(self.selected + 1, len(self.stage.tasks) - 1)
+        self.selected = min(self.selected + 1, max(0, len(self.stage.tasks) - 1))
 
     def prev(self) -> None:
         self.selected = max(self.selected - 1, 0)
