@@ -79,7 +79,33 @@ class StageViewList:
     def remove_task(self) -> None:
         self._dirty_views.add(self.selected)
         self.selected.remove()
-        logging.debug(self.selected.selected)
+        self.resize(self.cols)
+
+    # FIXME:
+    def move_task_forward(self) -> None:
+        task = self.selected.text
+        # no task to move
+        if task == "":
+            return
+        self.remove_task()
+        next_stage = self._selected + 1
+        next_stage = next_stage if next_stage < len(self.stage_views) else 0
+        self.stage_views[next_stage].add(task)
+        self._dirty_views.add(self.stage_views[next_stage])
+        self.resize(self.cols)
+
+    # FIXME:
+    def move_task_back(self) -> None:
+        task = self.selected.text
+        # no task to move
+        if task == "":
+            return
+
+        self.remove_task()
+        next_stage = self._selected - 1
+        next_stage = next_stage if next_stage >= 0 else len(self.stage_views) - 1
+        self.stage_views[next_stage].add(task)
+        self._dirty_views.add(self.stage_views[next_stage])
         self.resize(self.cols)
 
     def next_task(self) -> None:

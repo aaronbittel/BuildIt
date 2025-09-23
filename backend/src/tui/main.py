@@ -91,6 +91,10 @@ def main(stdscr: curses.window):
             stage_view_list.prev_task()
         elif key == ord("x"):
             stage_view_list.remove_task()
+        elif key == ord("n"):
+            stage_view_list.move_task_forward()
+        elif key == ord("p"):
+            stage_view_list.move_task_back()
         elif key == ord("\t"):
             stage_view_list.next_stage()
         elif key == curses.KEY_RESIZE:

@@ -131,6 +131,9 @@ class StageView:
 
     @property
     def text(self) -> str:
+        # TODO: return None here?
+        if len(self.stage.tasks) == 0:
+            return ""
         return self.stage.tasks[self.selected]
 
     @property
