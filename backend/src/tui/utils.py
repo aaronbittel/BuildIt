@@ -54,6 +54,7 @@ def get_input(
     width: int,
     height: int = 1,
     text: str | None = None,
+    title: str | None = None,
 ) -> str:
     def validator(ch: int) -> int:
         if ch == ord("\n") or ch == curses.KEY_RESIZE:
@@ -66,7 +67,8 @@ def get_input(
     edit_win = curses.newwin(height, width, y, x)
     if text is not None:
         edit_win.addstr(0, 0, text)
-    border_win = border(edit_win, title="Add" if text is None else "Edit")
+
+    border_win = border(edit_win, title=title)
     textbox = textpad.Textbox(edit_win, insert_mode=True)
 
     with show_cursor():
@@ -84,8 +86,11 @@ def title(win: curses.window, cols: int, text: str) -> None:
     win.clrtoeol()
     win.refresh()
 
-    if cols < len(text):
+    if cols <= 1:
         return
+
+    if cols < len(text):
+        text = text[: cols - 1] + ELLIPSIS
     win.addstr(0, cols // 2 - len(text) // 2, text, curses.A_BOLD | curses.A_UNDERLINE)
 
 

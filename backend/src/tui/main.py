@@ -68,6 +68,7 @@ def main(stdscr: curses.window):
                 y=stage_view_list.bottom + 1,
                 x=cols // 2 - edit_width // 2,
                 width=edit_width,
+                title="Add",
             )
             if got != "":
                 stage_view_list.add_task(got)
@@ -82,6 +83,7 @@ def main(stdscr: curses.window):
                 x=x,
                 width=edit_width,
                 text=stage_view_list.selected_task(),
+                title="Edit",
             )
             if got != "":
                 stage_view_list.update_task(got)
@@ -96,11 +98,22 @@ def main(stdscr: curses.window):
         elif key == ord("p"):
             stage_view_list.move_task_back()
         elif key == ord("J"):
-            logging.debug("J Pressed")
             stage_view_list.move_task(1)
         elif key == ord("K"):
-            logging.debug("K Pressed")
             stage_view_list.move_task(-1)
+        elif key == ord("N"):
+            _, cols = stdscr.getmaxyx()
+            x = max(cols // 2 - edit_width // 2, 1)
+            got = get_input(
+                y=stage_view_list.bottom + 1,
+                x=x,
+                width=edit_width,
+                title="Add Stage",
+            )
+            if got != "":
+                stage_view_list.add_stage(got)
+        elif key == ord("X"):
+            stage_view_list.remove_stage()
         elif key == ord("\t"):
             stage_view_list.next_stage()
         elif key == curses.KEY_RESIZE:

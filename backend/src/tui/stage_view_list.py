@@ -36,10 +36,14 @@ class StageViewList:
 
     def resize(self, cols: int) -> None:
         self.cols = cols
+        self._dirty_views = set(self.stage_views)
+        if len(self.stage_views) == 0:
+            return
 
         space_len = int(self.cols * self.space_perc)
-        content_width = self.cols - space_len * (len(self.stages) + 1)
-        width_per_stageview = content_width // len(self.stages)
+        content_width = self.cols - space_len * (len(self.stage_views) + 1)
+        width_per_stageview = content_width // len(self.stage_views)
+        logging.debug(f"{width_per_stageview=}")
 
         self.use_vertical_layout = width_per_stageview < self.min_width
 
@@ -50,8 +54,6 @@ class StageViewList:
             self._vertical_layout(cols)
         else:
             self._horizontal_layout(space_len, width_per_stageview)
-
-        self._dirty_views = set(self.stage_views)
 
     def _vertical_layout(self, cols: int) -> None:
         y = self.y
@@ -130,6 +132,20 @@ class StageViewList:
             self._selected = 0
         self.selected.highlighted = True
         self._dirty_views.add(self.selected)
+
+    def add_stage(self, name: str) -> None:
+        self.stage_views.append(
+            StageView(stage=Stage(name=name, tasks=[]), highlighted=True)
+        )
+        self.resize(self.cols)
+        self.selected.highlighted = False
+        self._selected = len(self.stage_views) - 1
+
+    def remove_stage(self) -> None:
+        self.stage_views.remove(self.selected)
+        self.resize(self.cols)
+        self._selected = max(self._selected - 1, 0)
+        self.selected.highlighted = True
 
     @property
     def selected(self) -> StageView:
