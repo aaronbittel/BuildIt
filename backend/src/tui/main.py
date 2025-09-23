@@ -101,6 +101,18 @@ def main(stdscr: curses.window):
             stage_view_list.move_task(1)
         elif key == ord("K"):
             stage_view_list.move_task(-1)
+        elif key == ord("E"):
+            _, cols = stdscr.getmaxyx()
+            x = max(cols // 2 - edit_width // 2, 1)
+            got = get_input(
+                y=stage_view_list.bottom + 1,
+                x=x,
+                width=edit_width,
+                text=stage_view_list.selected.stage.name,
+                title="Edit Stage",
+            )
+            if got != "":
+                stage_view_list.edit_stage(got)
         elif key == ord("N"):
             _, cols = stdscr.getmaxyx()
             x = max(cols // 2 - edit_width // 2, 1)

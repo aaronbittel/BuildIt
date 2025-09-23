@@ -3,11 +3,12 @@ import curses
 import logging
 import utils
 import _curses
-from typing import NamedTuple
 from src.tui.utils import ELLIPSIS
+from dataclasses import dataclass
 
 
-class Stage(NamedTuple):
+@dataclass
+class Stage:
     name: str
     tasks: list[str]
 

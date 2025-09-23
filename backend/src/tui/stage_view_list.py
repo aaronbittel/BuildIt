@@ -141,6 +141,10 @@ class StageViewList:
         self.selected.highlighted = False
         self._selected = len(self.stage_views) - 1
 
+    def edit_stage(self, name: str) -> None:
+        self.selected.stage.name = name
+        self._dirty_views.add(self.selected)
+
     def remove_stage(self) -> None:
         self.stage_views.remove(self.selected)
         self.resize(self.cols)
