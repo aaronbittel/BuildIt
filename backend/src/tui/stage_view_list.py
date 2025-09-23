@@ -108,6 +108,10 @@ class StageViewList:
         self._dirty_views.add(self.stage_views[next_stage])
         self.resize(self.cols)
 
+    def move_task(self, dir: int) -> None:
+        self._dirty_views.add(self.selected)
+        self.selected.move(dir)
+
     def next_task(self) -> None:
         self._dirty_views.add(self.selected)
         self.selected.next()

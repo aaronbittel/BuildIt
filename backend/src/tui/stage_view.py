@@ -129,6 +129,16 @@ class StageView:
     def update(self, task: str) -> None:
         self.stage.tasks[self.selected] = task
 
+    def move(self, dir: int) -> None:
+        old_pos = self.selected
+        new_pos = old_pos + dir
+        if new_pos < 0 or new_pos >= len(self.stage.tasks):
+            return
+
+        text = self.stage.tasks.pop(old_pos)
+        self.stage.tasks.insert(new_pos, text)
+        self.selected = new_pos
+
     @property
     def text(self) -> str:
         # TODO: return None here?
