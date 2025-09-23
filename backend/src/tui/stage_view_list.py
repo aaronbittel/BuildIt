@@ -43,7 +43,6 @@ class StageViewList:
         space_len = int(self.cols * self.space_perc)
         content_width = self.cols - space_len * (len(self.stage_views) + 1)
         width_per_stageview = content_width // len(self.stage_views)
-        logging.debug(f"{width_per_stageview=}")
 
         self.use_vertical_layout = width_per_stageview < self.min_width
 
@@ -130,6 +129,15 @@ class StageViewList:
         self._selected += 1
         if self._selected >= len(self.stage_views):
             self._selected = 0
+        self.selected.highlighted = True
+        self._dirty_views.add(self.selected)
+
+    def prev_stage(self) -> None:
+        self._dirty_views.add(self.selected)
+        self.selected.highlighted = False
+        self._selected -= 1
+        if self._selected < 0:
+            self._selected = len(self.stage_views) - 1
         self.selected.highlighted = True
         self._dirty_views.add(self.selected)
 

@@ -128,6 +128,8 @@ def main(stdscr: curses.window):
             stage_view_list.remove_stage()
         elif key == ord("\t"):
             stage_view_list.next_stage()
+        elif key == curses.KEY_BTAB:
+            stage_view_list.prev_stage()
         elif key == curses.KEY_RESIZE:
             _, cols = stdscr.getmaxyx()
             title(stdscr, cols=cols, text=title_text)
