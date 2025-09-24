@@ -1,10 +1,9 @@
-from contextlib import suppress
-import curses
-import logging
-import utils
 import _curses
-from src.tui.utils import ELLIPSIS
+import curses
+from contextlib import suppress
 from dataclasses import dataclass
+
+from src.tui.utils import ELLIPSIS
 
 
 @dataclass
@@ -65,8 +64,8 @@ class StageView:
             self._win.addstr(0, (self.width - len(title)) // 2, title)
             for i, task in enumerate(self.stage.tasks):
                 text = task
-                if len(text) > self.width - 5:
-                    text = text[: self.width - 5] + ELLIPSIS
+                if len(text) > self.width - 4:
+                    text = text[: self.width - 4 - 1] + ELLIPSIS
                 with suppress(_curses.error):
                     self._win.addstr(i + 1, 2, text)
                 if self.highlighted:
@@ -150,3 +149,13 @@ class StageView:
     @property
     def bottom(self) -> int:
         return self.y + self.view_height
+
+    @property
+    def selected_fit(self) -> bool:
+        if self._win is None:
+            return False
+        return len(self.text) <= self.width - 4  # border (2) + left padding (2)
+
+    @property
+    def selected_position(self) -> tuple[int, int]:
+        return self.y + self.selected + 1, self.x + 2  # lborder(1) + lpadding(1)

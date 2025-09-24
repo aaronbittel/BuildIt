@@ -1,10 +1,10 @@
-from contextlib import contextmanager, suppress
-import curses
-from curses import textpad
 import _curses
-from functools import wraps
+import curses
 import logging
-from pathlib import Path
+import math
+from contextlib import contextmanager, suppress
+from curses import textpad
+from functools import wraps
 
 ROUNDED_TOPLEFT = "╭"
 ROUNDED_TOPRIGHT = "╮"
@@ -15,6 +15,7 @@ HORIZONTAL_BAR = "─"
 ELLIPSIS = "…"
 
 KEY_EXIT = 7
+KEY_ENTER = 10
 KEY_IGNORE = 0
 
 
@@ -61,12 +62,18 @@ def get_input(
             return KEY_EXIT
         return ch
 
-    if (text is not None and width < len(text)) or width < 4:
+    if width < 4:
         return ""
 
-    edit_win = curses.newwin(height, width, y, x)
+    lines = 1
+    if text is not None and len(text) > width:
+        lines = math.ceil(len(text) / width)
+        logging.debug(f"{lines=}")
+
+    edit_win = curses.newwin(lines, width, y, x)
     if text is not None:
-        edit_win.addstr(0, 0, text)
+        with suppress(_curses.error):
+            edit_win.addstr(0, 0, text)
 
     border_win = border(edit_win, title=title)
     textbox = textpad.Textbox(edit_win, insert_mode=True)

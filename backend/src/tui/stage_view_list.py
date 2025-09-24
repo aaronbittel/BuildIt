@@ -1,4 +1,3 @@
-import logging
 from src.tui.stage_view import Stage, StageView
 
 
@@ -29,7 +28,12 @@ class StageViewList:
 
         self.resize(cols)
 
-    def draw(self) -> None:
+    def draw(self, *, force: bool = False) -> None:
+        if force:
+            for view in self.stage_views:
+                view.draw()
+            return
+
         for view in self._dirty_views:
             view.draw()
         self._dirty_views.clear()
