@@ -2,29 +2,28 @@ import _curses
 import curses
 import logging
 from contextlib import suppress
-from curses import KEY_BACKSPACE, KEY_RESIZE, textpad
+from curses import A_NORMAL, KEY_RESIZE
 
 from src.tui.stage_view import Stage
 from src.tui.stage_view_list import StageViewList
 from src.tui.utils import (
-    KEY_ENTER,
-    KEY_EXIT,
     border,
     get_input,
     hide_cursor,
-    show_cursor,
     title,
 )
 
 logging.basicConfig(
     filename="app.log",
     filemode="w",
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 
 
-PREF_EDIT_WIDTH = 48
+GREEN_ON_BLACK = 1
+BLACK_ON_GREEN = 2
+YELLOW_ON_BLACK = 3
 
 # TODO: use floats for calculation for precise results
 # TODO: use win.mvwin and / or win.resize instead of creating new windows (if its
@@ -84,13 +83,19 @@ def split_text_into_lines(text: str, width: int) -> list[str]:
     lines: list[str] = []
     cur = 0
     while cur + width < len(text):
+        logging.debug(f"segment: {text[cur : cur + width]}")
         last_space_idx = text[cur : cur + width].rfind(" ")
         if last_space_idx == -1:
+            logging.debug("no space found")
             lines.append(text[cur : cur + width])
             cur += width
+        elif last_space_idx == 0:
+            cur += 1
         else:
+            logging.debug(f"space found at {last_space_idx}")
             lines.append(text[cur : cur + last_space_idx])
             cur += last_space_idx
+        logging.debug(f"{lines=}")
     if cur < len(text):
         lines.append(text[cur:])
     return list(map(lambda s: s.strip(), lines))
@@ -117,108 +122,121 @@ def popup(
     return win, border_win
 
 
-class GrowableTextbox:
-    def __init__(
-        self,
-        height: int,
-        width: int,
-        y: int,
-        x: int,
-        title: str = "",
-        text: str = "",
-    ):
-        self.height = height
-        self.width = width
-        self.y = y
-        self.x = x
-        self.title = title
+def confirm(
+    rows: int,
+    cols: int,
+    message: str,
+    min_width: int = 20,
+    title: str = "Confirm",
+    border_color: int | None = None,
+) -> bool:
+    # FIXME:
+    def draw_choices(win: curses.window, selected: bool = True) -> None:
+        yes, no = "Yes", "No"
+        confirm_space = 4
+        confirm_width = len(yes) + confirm_space + len(no)  # spaces(4)
+        yes_start = width // 2 - confirm_width // 2
+        attr = curses.A_REVERSE if selected else A_NORMAL
+        win.addstr(height - 2, yes_start, yes, attr)
+        attr = curses.A_REVERSE if not selected else A_NORMAL
+        win.addstr(height - 2, yes_start + len(yes) + confirm_space, no, attr)
 
-        self.cur = 0
-        self._win = curses.newwin(height, width, y, x)
-        self._win.addstr(0, 0, text)
-        self._border_win = border(self._win, title=self.title)
-        self._textbox = textpad.Textbox(self._win, insert_mode=True)
-        self._exit = False
-        self._buffer = text
+    def draw_choice(win: curses.window) -> None:
+        yes, no = "Yes", "No"
+        confirm_space = 4
+        confirm_width = len(yes) + confirm_space + len(no)  # spaces(4)
+        yes_start = width // 2 - confirm_width // 2
+        win.addstr(height - 2, yes_start, yes)
+        win.addstr(height - 2, yes_start + len(yes) + confirm_space, no)
 
-    def edit(self) -> str:
-        with show_cursor():
-            text = self._textbox.edit(self.validator).strip().replace("\n", "")
-        logging.info(f"{text=} {self._buffer=} {self._need_redraw()=}")
-        if not self._need_redraw():
-            self.destroy()
-            return self._buffer
+    split_width = max(cols // 2, min_width)
+    lines = split_text_into_lines(text=message, width=split_width)
+    height = len(lines) + 2 + 1 + 1  # space(2) + Yes/No(1) + space(1)
 
-        logging.debug("Redrawing edit window")
-        self.height += 1
-        self.destroy()
+    maxlen = max(map(len, lines))
+    width = maxlen + 2
 
-        self._win = curses.newwin(self.height, self.width, self.y, self.x)
-        self._border_win = border(self._win, title=self.title)
-        self._win.addstr(0, 0, self._buffer)
-        self._textbox = textpad.Textbox(self._win)
+    win = curses.newwin(
+        height,
+        width,
+        rows // 2 - height // 2,
+        cols // 2 - width // 2,
+    )
+    color = border_color if border_color is not None else GREEN_ON_BLACK
+    border_win = border(win, title, color=color)
 
-        self._win.refresh()
-        self._border_win.refresh()
+    for i, line in enumerate(lines, start=1):
+        win.addstr(i, 1, line)
 
-        return self.edit()
+    draw_choices(win)
+    win.refresh()
 
-    def destroy(self) -> None:
-        self._border_win.clear()
-        self._border_win.refresh()
-        self._win.clear()
-        self._win.refresh()
+    selected = True
 
-    # TODO: Handle Ctrl + A, Ctrl + E, etc.
-    def validator(self, ch: int) -> int:
-        if ch == KEY_BACKSPACE:
-            self.cur = max(self.cur - 1, 0)
-            self._buffer = self._buffer[:-1]
-        elif ch == KEY_ENTER:
-            self._exit = True
-            return KEY_EXIT
-        elif ch == KEY_RESIZE:
-            logging.info(f"RESIZE: '{self._buffer}'")
-            if self._buffer == "":
-                self._exit = True
-            return KEY_EXIT
-        elif 32 <= ch <= 126:
-            logging.debug(f"{ch=} {chr(ch)=}")
-            self.cur += 1
-            self._buffer += chr(ch)
-        if self.cur >= (self.width * self.height) - 1:
-            return KEY_EXIT
-        return ch
+    while True:
+        key = win.getch()
 
-    def _need_redraw(self) -> bool:
-        return not self._exit or self.cur >= (self.width * self.height) - 1
+        if key in map(ord, ("l", "L", "h", "H")):
+            selected = not selected
+            draw_choices(win, selected)
+            win.refresh()
+        elif key == ord("\n"):
+            break
+        elif key in map(ord, ("y", "Y")):
+            selected = True
+            break
+        elif key in map(ord, ("n", "N", "q", "Q")):
+            selected = False
+            break
+        elif key == KEY_RESIZE:
+            logging.info("RESIZE in DIALOG")
 
-    @property
-    def submitted(self) -> bool:
-        return self._exit
+    draw_choice(win)
+    win.refresh()
+    curses.napms(40)
+    draw_choices(win, selected)
+    win.refresh()
+    curses.napms(120)
+    win.clear()
+    win.refresh()
+    border_win.clear()
+    border_win.refresh()
+    return selected
 
 
 @hide_cursor
 def main(stdscr: curses.window):
     curses.start_color()
-    curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)
-    curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_GREEN)
+    curses.init_pair(GREEN_ON_BLACK, curses.COLOR_GREEN, curses.COLOR_BLACK)
+    curses.init_pair(BLACK_ON_GREEN, curses.COLOR_BLACK, curses.COLOR_GREEN)
+    curses.init_pair(YELLOW_ON_BLACK, curses.COLOR_YELLOW, curses.COLOR_BLACK)
 
     stdscr.keypad(True)
 
     stdscr.clear()
     stdscr.refresh()
 
+    rows, cols = stdscr.getmaxyx()
+
     title_text = "Buildit! - Tui"
-    title(stdscr, cols=curses.COLS, text=title_text)
+    title(stdscr, cols=cols, text=title_text)
 
-    stage_view_list = StageViewList(
-        y=2, stages=stages, space_perc=0.03, cols=curses.COLS
+    stage_view_list = StageViewList(y=3, stages=stages, cols=cols, min_width=30)
+
+    alternate_stage_view_list = StageViewList(
+        y=2,
+        stages=[
+            Stage(name="Backlog", tasks=[]),
+            Stage(name="In Progress", tasks=[]),
+            Stage(name="Done", tasks=[]),
+        ],
+        cols=cols,
     )
 
-    edit_width = (
-        PREF_EDIT_WIDTH if curses.COLS - 2 > PREF_EDIT_WIDTH else curses.COLS - 2
-    )
+    def calc_edit_width(cols: int, min_width: int = 10) -> int:
+        return max(int(cols * 0.75), 10)
+
+    edit_width = calc_edit_width(cols)
 
     running = True
     help_open = False
@@ -233,12 +251,20 @@ def main(stdscr: curses.window):
 
         if key == ord("q"):
             running = False
+        elif key == ord("c"):
+            choice = confirm(
+                rows=rows,
+                cols=cols,
+                message="What about a really really long long longer Question?qqqqqq",
+                border_color=YELLOW_ON_BLACK,
+                title="[TEST CONFIRM DIALOG]",
+            )
+            stage_view_list.draw(force=True)
+            logging.debug(f"confirm: {choice}")
         elif key == ord("?"):
-            rows, cols = stdscr.getmaxyx()
             help(rows, cols, help_open=help_open)
             help_open = not help_open
         elif key == ord("a"):
-            _, cols = stdscr.getmaxyx()
             textbox = GrowableTextbox(
                 height=1,
                 width=edit_width,
@@ -256,7 +282,6 @@ def main(stdscr: curses.window):
             # FIXME: handle this better
             if len(stage_view_list.selected.stage.tasks) == 0:
                 continue
-            _, cols = stdscr.getmaxyx()
             x = max(cols // 2 - edit_width // 2, 1)
             got = get_input(
                 y=stage_view_list.bottom + 1,
@@ -282,7 +307,6 @@ def main(stdscr: curses.window):
         elif key == ord("K"):
             stage_view_list.move_task(-1)
         elif key == ord("E"):
-            _, cols = stdscr.getmaxyx()
             x = max(cols // 2 - edit_width // 2, 1)
             got = get_input(
                 y=stage_view_list.bottom + 1,
@@ -294,7 +318,6 @@ def main(stdscr: curses.window):
             if got != "":
                 stage_view_list.edit_stage(got)
         elif key == ord("N"):
-            _, cols = stdscr.getmaxyx()
             x = max(cols // 2 - edit_width // 2, 1)
             got = get_input(
                 y=stage_view_list.bottom + 1,
@@ -334,11 +357,22 @@ def main(stdscr: curses.window):
             stage_view_list.next_stage()
         elif key == curses.KEY_BTAB:
             stage_view_list.prev_stage()
+        elif key == ord("\n"):
+            if confirm(rows, cols, message="Create new StageView?"):
+                stage_view_list.clear()
+                stage_view_list, alternate_stage_view_list = (
+                    alternate_stage_view_list,
+                    stage_view_list,
+                )
+                stage_view_list.selected.blink(
+                    color_pair=BLACK_ON_GREEN, duration_ms=120
+                )
+            stage_view_list.draw(force=True)
         elif key == curses.KEY_RESIZE:
-            _, cols = stdscr.getmaxyx()
+            rows, cols = stdscr.getmaxyx()
             title(stdscr, cols=cols, text=title_text)
             stage_view_list.resize(cols)
-            edit_width = PREF_EDIT_WIDTH if cols - 2 > PREF_EDIT_WIDTH else cols - 2
+            edit_width = calc_edit_width(cols)
 
 
 if __name__ == "__main__":

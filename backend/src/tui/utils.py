@@ -19,12 +19,18 @@ KEY_ENTER = 10
 KEY_IGNORE = 0
 
 
-def border(win: curses.window, title: str | None = None) -> curses.window:
+def border(
+    win: curses.window, title: str | None = None, color: int = 0
+) -> curses.window:
     org_height, org_width = win.getmaxyx()
     org_y, org_x = win.getbegyx()
 
     height, width = org_height + 2, org_width + 2
+    logging.info(f"{height=} {width=} {org_y=} {org_x=}")
     border_win = curses.newwin(height, width, org_y - 1, org_x - 1)
+
+    color = curses.color_pair(color)
+    border_win.attron(color)
 
     border_win.addstr(
         0, 0, ROUNDED_TOPLEFT + HORIZONTAL_BAR * (width - 2) + ROUNDED_TOPRIGHT
@@ -42,6 +48,7 @@ def border(win: curses.window, title: str | None = None) -> curses.window:
             0,
             ROUNDED_BOTTOMLEFT + HORIZONTAL_BAR * (width - 2) + ROUNDED_BOTTOMRIGHT,
         )
+    border_win.attroff(color)
 
     if title:
         border_win.addstr(0, 2, title)

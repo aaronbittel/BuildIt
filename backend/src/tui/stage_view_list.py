@@ -2,20 +2,18 @@ from src.tui.stage_view import Stage, StageView
 
 
 class StageViewList:
+    SPACE_BETWEEN = 2
+
     def __init__(
         self,
         y: int,
         stages: list[Stage],
-        space_perc: float,
         cols: int,
         min_width=20,
     ) -> None:
-        assert len(stages) > 0
-
         self.y = y
         self.stages = stages
         self.cols = cols
-        self.space_perc = space_perc
         self.min_width = min_width
 
         self.use_vertical_layout = False
@@ -38,17 +36,22 @@ class StageViewList:
             view.draw()
         self._dirty_views.clear()
 
+    def clear(self) -> None:
+        for view in self.stage_views:
+            view.clear()
+
     def resize(self, cols: int) -> None:
         self.cols = cols
         self._dirty_views = set(self.stage_views)
         if len(self.stage_views) == 0:
             return
 
-        space_len = int(self.cols * self.space_perc)
-        content_width = self.cols - space_len * (len(self.stage_views) + 1)
-        width_per_stageview = content_width // len(self.stage_views)
+        min_width_for_horizontal_layout = (
+            self.min_width * len(self.stage_views)
+            + (len(self.stage_views) + 1) * StageViewList.SPACE_BETWEEN
+        )
 
-        self.use_vertical_layout = width_per_stageview < self.min_width
+        self.use_vertical_layout = min_width_for_horizontal_layout > cols
 
         for view in self.stage_views:
             view.clear()
@@ -56,7 +59,7 @@ class StageViewList:
         if self.use_vertical_layout:
             self._vertical_layout(cols)
         else:
-            self._horizontal_layout(space_len, width_per_stageview)
+            self._horizontal_layout(cols)
 
     def _vertical_layout(self, cols: int) -> None:
         y = self.y
@@ -64,9 +67,13 @@ class StageViewList:
             view.resize(y=y, x=0, width=cols)
             y += view.view_height
 
-    def _horizontal_layout(self, space_len: int, width_per_stageview: int) -> None:
+    def _horizontal_layout(self, cols: int) -> None:
+        total_space_len = (len(self.stage_views) + 1) * StageViewList.SPACE_BETWEEN
+        width_per_stageview = (cols - total_space_len) // len(self.stage_views)
         for i, view in enumerate(self.stage_views):
-            x = space_len + i * (width_per_stageview + space_len)
+            x = StageViewList.SPACE_BETWEEN + i * (
+                width_per_stageview + StageViewList.SPACE_BETWEEN
+            )
             view.resize(y=self.y, x=x, width=width_per_stageview)
 
     def selected_task(self) -> str:

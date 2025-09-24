@@ -3,7 +3,7 @@ import curses
 from contextlib import suppress
 from dataclasses import dataclass
 
-from src.tui.utils import ELLIPSIS
+from src.tui.utils import ELLIPSIS, border
 
 
 @dataclass
@@ -80,6 +80,15 @@ class StageView:
 
         self._win.clear()
         self._win.refresh()
+
+    def blink(self, color_pair: int, duration_ms: int) -> None:
+        win = curses.newwin(self.view_height, self.width, self.y, self.x)
+        win.bkgd(" ", curses.color_pair(color_pair))
+        win.border()
+        win.refresh()
+        curses.napms(duration_ms)
+        self._win.bkgd(" ", curses.color_pair(0))
+        self.draw()
 
     def _can_draw(self) -> bool:
         if self._win is None:
