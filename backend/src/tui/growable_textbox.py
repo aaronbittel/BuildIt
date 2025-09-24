@@ -1,10 +1,12 @@
 import curses
+from curses import textpad
 import logging
 
-from src.tui.growable_textbox import GrowableTextbox
 from src.tui.utils import (
+    KEY_ENTER,
     KEY_EXIT,
     border,
+    show_cursor,
 )
 
 
@@ -62,13 +64,13 @@ class GrowableTextbox:
 
     # TODO: Handle Ctrl + A, Ctrl + E, etc.
     def validator(self, ch: int) -> int:
-        if ch == KEY_BACKSPACE:
+        if ch == curses.KEY_BACKSPACE:
             self.cur = max(self.cur - 1, 0)
             self._buffer = self._buffer[:-1]
         elif ch == KEY_ENTER:
             self._exit = True
             return KEY_EXIT
-        elif ch == KEY_RESIZE:
+        elif ch == curses.KEY_RESIZE:
             logging.debug(f"RESIZE: '{self._buffer}'")
             if self._buffer == "":
                 self._exit = True

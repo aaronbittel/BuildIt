@@ -1,8 +1,11 @@
+from dataclasses import dataclass
+import logging
 from src.tui.stage_view import Stage, StageView
 
 
-class StageViewList:
+class StageListView:
     SPACE_BETWEEN = 2
+    BORDER_PADDING = 1
 
     def __init__(
         self,
@@ -48,7 +51,8 @@ class StageViewList:
 
         min_width_for_horizontal_layout = (
             self.min_width * len(self.stage_views)
-            + (len(self.stage_views) + 1) * StageViewList.SPACE_BETWEEN
+            + (len(self.stage_views) - 1) * StageListView.SPACE_BETWEEN
+            + 2 * StageListView.BORDER_PADDING
         )
 
         self.use_vertical_layout = min_width_for_horizontal_layout > cols
@@ -64,24 +68,28 @@ class StageViewList:
     def _vertical_layout(self, cols: int) -> None:
         y = self.y
         for view in self.stage_views:
-            view.resize(y=y, x=0, width=cols)
+            view.resize(y=y, x=1, width=cols - 2 * StageListView.BORDER_PADDING)
             y += view.view_height
 
     def _horizontal_layout(self, cols: int) -> None:
-        total_space_len = (len(self.stage_views) + 1) * StageViewList.SPACE_BETWEEN
-        width_per_stageview = (cols - total_space_len) // len(self.stage_views)
+        total_space_between = (
+            len(self.stage_views) - 1
+        ) * StageListView.SPACE_BETWEEN + 2 * StageListView.BORDER_PADDING
+        width_per_stageview = (cols - total_space_between) // len(self.stage_views)
+        logging.info(f"{cols=}")
+        logging.info(f"{total_space_between=}")
+        logging.info(f"{width_per_stageview=}")
         for i, view in enumerate(self.stage_views):
-            x = StageViewList.SPACE_BETWEEN + i * (
-                width_per_stageview + StageViewList.SPACE_BETWEEN
-            )
+            x = 1 + i * (width_per_stageview + StageListView.SPACE_BETWEEN)
+            logging.info(f"{x=}")
             view.resize(y=self.y, x=x, width=width_per_stageview)
 
     def selected_task(self) -> str:
         return self.selected.text
 
-    def update_task(self, task: str) -> str:
+    def update_task(self, task_name: str) -> str:
         self._dirty_views.add(self.selected)
-        return self.selected.update(task)
+        return self.selected.update(task_name)
 
     def add_task(self, task: str) -> None:
         self._dirty_views.add(self.selected)

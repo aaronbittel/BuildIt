@@ -1,15 +1,27 @@
+from __future__ import annotations
 import _curses
 import curses
 from contextlib import suppress
 from dataclasses import dataclass
+import logging
 
 from src.tui.utils import ELLIPSIS, border
 
 
 @dataclass
+class Task:
+    name: str
+    prev_stage: Stage | None = None
+    next_stage: Stage | None = None
+
+    def __len__(self) -> int:
+        return len(self.name)
+
+
+@dataclass
 class Stage:
     name: str
-    tasks: list[str]
+    tasks: list[Task]
 
 
 class StageView:
@@ -61,9 +73,10 @@ class StageView:
             title = title[: self.width - 1] + ELLIPSIS
 
         if self.width > 4:
-            self._win.addstr(0, (self.width - len(title)) // 2, title)
+            self._win.addstr(0, (self.width - len(title)) // 2, title, curses.A_BOLD)
             for i, task in enumerate(self.stage.tasks):
-                text = task
+                logging.info(f"{type(task)} {task=}")
+                text = task.name
                 if len(text) > self.width - 4:
                     text = text[: self.width - 4 - 1] + ELLIPSIS
                 with suppress(_curses.error):
@@ -135,8 +148,8 @@ class StageView:
     def prev(self) -> None:
         self.selected = max(self.selected - 1, 0)
 
-    def update(self, task: str) -> None:
-        self.stage.tasks[self.selected] = task
+    def update(self, name: str) -> None:
+        self.stage.tasks[self.selected].name = name
 
     def move(self, dir: int) -> None:
         old_pos = self.selected
@@ -153,7 +166,7 @@ class StageView:
         # TODO: return None here?
         if len(self.stage.tasks) == 0:
             return ""
-        return self.stage.tasks[self.selected]
+        return self.stage.tasks[self.selected].name
 
     @property
     def bottom(self) -> int:
@@ -168,3 +181,7 @@ class StageView:
     @property
     def selected_position(self) -> tuple[int, int]:
         return self.y + self.selected + 1, self.x + 2  # lborder(1) + lpadding(1)
+
+    @property
+    def task(self) -> Task:
+        return self.stage.tasks[self.selected]

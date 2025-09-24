@@ -4,8 +4,9 @@ import logging
 from contextlib import suppress
 from curses import A_NORMAL, KEY_RESIZE
 
-from src.tui.stage_view import Stage
-from src.tui.stage_view_list import StageViewList
+from src.tui.growable_textbox import GrowableTextbox
+from src.tui.stage_view import Stage, Task
+from src.tui.stage_view_list import StageListView
 from src.tui.utils import (
     border,
     get_input,
@@ -35,13 +36,30 @@ stages = [
     Stage(
         name="Backlog",
         tasks=[
-            "use floats for calculation for precise results",
-            "use win.mvwin and / or win.resize instead of creating new windows (if its easier)",
-            "Look into this: erase, noutrefresh, doupdate, etc.",
+            Task(name="use floats for calculation for precise results"),
+            Task(
+                name="use win.mvwin and / or win.resize instead of creating new windows (if its easier)"
+            ),
+            Task(name="Look into this: erase, noutrefresh, doupdate, etc."),
         ],
     ),
-    Stage(name="In Progress", tasks=["Task 1", "Task 2", "Long Long Long Message"]),
-    Stage(name="Done", tasks=["Finished 1", "Finished 2", "Finished 3", "Another One"]),
+    Stage(
+        name="In Progress",
+        tasks=[
+            Task(name="Task 1"),
+            Task(name="Task 2"),
+            Task(name="Long Long Long Message"),
+        ],
+    ),
+    Stage(
+        name="Done",
+        tasks=[
+            Task(name="Finished 1"),
+            Task(name="Finished 2"),
+            Task(name="Finished 3"),
+            Task(name="Another One"),
+        ],
+    ),
 ]
 
 
@@ -101,7 +119,7 @@ def split_text_into_lines(text: str, width: int) -> list[str]:
     return list(map(lambda s: s.strip(), lines))
 
 
-def popup(
+def expand_text(
     cursor_y: int, cursor_x: int, max_width: int, text: str, rows: int, cols: int
 ) -> tuple[curses.window, curses.window]:
     lines = split_text_into_lines(text, max_width)
@@ -221,9 +239,9 @@ def main(stdscr: curses.window):
     title_text = "Buildit! - Tui"
     title(stdscr, cols=cols, text=title_text)
 
-    stage_view_list = StageViewList(y=3, stages=stages, cols=cols, min_width=30)
+    stage_view_list = StageListView(y=3, stages=stages, cols=cols, min_width=30)
 
-    alternate_stage_view_list = StageViewList(
+    alternate_stage_view_list = StageListView(
         y=2,
         stages=[
             Stage(name="Backlog", tasks=[]),
@@ -234,7 +252,7 @@ def main(stdscr: curses.window):
     )
 
     def calc_edit_width(cols: int, min_width: int = 10) -> int:
-        return max(int(cols * 0.75), 10)
+        return max(int(cols * 0.75), min_width)
 
     edit_width = calc_edit_width(cols)
 
@@ -273,25 +291,25 @@ def main(stdscr: curses.window):
                 title="Add Task",
                 text=textbox_text,
             )
-            got = textbox.edit()
-            textbox_text = got
-            if textbox.submitted and got != "":
-                stage_view_list.add_task(got)
+            task_name = textbox.edit()
+            textbox_text = task_name
+            if textbox.submitted and task_name != "":
+                stage_view_list.add_task(Task(name=task_name))
                 textbox_text = ""
         elif key == ord("e"):
             # FIXME: handle this better
             if len(stage_view_list.selected.stage.tasks) == 0:
                 continue
             x = max(cols // 2 - edit_width // 2, 1)
-            got = get_input(
+            task_name = get_input(
                 y=stage_view_list.bottom + 1,
                 x=x,
                 width=edit_width,
                 text=stage_view_list.selected_task(),
                 title="Edit Task",
             )
-            if got != "":
-                stage_view_list.update_task(got)
+            if task_name != "":
+                stage_view_list.update_task(task_name)
         elif key == ord("j"):
             stage_view_list.next_task()
         elif key == ord("k"):
@@ -308,25 +326,25 @@ def main(stdscr: curses.window):
             stage_view_list.move_task(-1)
         elif key == ord("E"):
             x = max(cols // 2 - edit_width // 2, 1)
-            got = get_input(
+            task_name = get_input(
                 y=stage_view_list.bottom + 1,
                 x=x,
                 width=edit_width,
                 text=stage_view_list.selected.stage.name,
                 title="Edit Stage",
             )
-            if got != "":
-                stage_view_list.edit_stage(got)
+            if task_name != "":
+                stage_view_list.edit_stage(task_name)
         elif key == ord("N"):
             x = max(cols // 2 - edit_width // 2, 1)
-            got = get_input(
+            task_name = get_input(
                 y=stage_view_list.bottom + 1,
                 x=x,
                 width=edit_width,
                 title="Add Stage",
             )
-            if got != "":
-                stage_view_list.add_stage(got)
+            if task_name != "":
+                stage_view_list.add_stage(task_name)
         elif key == ord("X"):
             stage_view_list.remove_stage()
         elif key == ord("s"):
@@ -335,7 +353,7 @@ def main(stdscr: curses.window):
                 if not stage_view_list.selected.selected_fit:
                     rows, cols = stdscr.getmaxyx()
                     cursor_y, cursor_x = stage_view_list.selected.selected_position
-                    popup_win, border_win = popup(
+                    popup_win, border_win = expand_text(
                         cursor_y=cursor_y,
                         cursor_x=cursor_x,
                         max_width=max(
