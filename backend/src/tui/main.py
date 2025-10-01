@@ -10,15 +10,13 @@ from src.tui.layout import Layout
 from src.tui.utils import KEY_ESC, show_cursor, split_text_into_lines
 
 logging.basicConfig(filename="app.log", level=logging.DEBUG, filemode="w")
-Mode = Literal["Adding", "Editing"]
+Mode = Literal["Add Task", "Edit Task", "Add Stage", "Edit Stage"]
 
 
 class App:
     def __init__(self) -> None:
         self.buf: list[str] = []
-        self.adding = False
-        self.editing = False
-
+        self._cur_mode: Mode | None = None
         self._last_mode: Mode | None = None
 
     def handle_key(self, key: int) -> None:
@@ -31,29 +29,29 @@ class App:
             return
         elif key == ord("\n"):
             # Accept Input
-            self.adding = False
-            self.editing = False
+            self._cur_mode = None
         elif key == KEY_ESC:
             # Cancel Input
-            self.adding = False
-            self.editing = False
+            self._cur_mode = None
             self.buf = []
 
-    def enable_edit_mode(self, val: str | None = None) -> None:
-        assert val != ""
-        if val is None:
-            self.adding = True
-            self.buf = []
-            self._last_mode = "Adding"
-        else:
-            self.editing = True
-            self.buf = [c for c in val]
-            self._last_mode = "Editing"
+    def enable_edit_mode(self, mode: Mode, initial_text: str) -> None:
+        assert mode == "Edit Stage" or mode == "Edit Task"
+        assert initial_text != ""
+
+        self._cur_mode = mode
+        self._last_mode = mode
+        self.buf = [c for c in initial_text]
+
+    def enable_add_mode(self, mode: Mode) -> None:
+        assert mode == "Add Stage" or mode == "Add Task"
+        self._cur_mode = mode
+        self._last_mode = mode
+        self.buf = []
 
     @property
-    def in_edit_mode(self) -> bool:
-        logging.info(f"{self.adding=} {self.editing=}")
-        return self.adding or self.editing
+    def textinput_open(self) -> bool:
+        return self._cur_mode is not None
 
     @property
     def edit_content(self) -> str:
@@ -63,6 +61,11 @@ class App:
     def last_mode(self) -> Mode:
         assert self._last_mode is not None
         return self._last_mode
+
+    @property
+    def cur_mode(self) -> Mode:
+        assert self._cur_mode is not None
+        return self._cur_mode
 
 
 def display_title(layout: Layout, title: str) -> None:
@@ -123,7 +126,7 @@ def main(stdscr: curses.window) -> None:
         stdscr.erase()
         stdscr.refresh()
 
-        if app.in_edit_mode:
+        if app.textinput_open:
             curses.curs_set(1)
         else:
             curses.curs_set(0)
@@ -152,7 +155,7 @@ def main(stdscr: curses.window) -> None:
                     if v_ok:
                         board_view(layout, board)
 
-            if app.in_edit_mode:
+            if app.textinput_open:
                 # FIXME: Space does not get rendered
                 lines = split_text_into_lines("".join(app.buf), width=edit_width - 3)
                 with layout.horizontal(
@@ -164,7 +167,7 @@ def main(stdscr: curses.window) -> None:
                         rect = layout.next_rect(height=max(1, len(lines)) + 2)
                         box(
                             rect,
-                            title="Edit",
+                            title=app.cur_mode,
                             lines=lines,
                             selected=-1,
                             highlighted=True,
@@ -176,13 +179,17 @@ def main(stdscr: curses.window) -> None:
 
         key = stdscr.getch()
 
-        if app.in_edit_mode:
+        if app.textinput_open:
             app.handle_key(key)
-            if not app.in_edit_mode and len(app.edit_content) > 0:
-                if app.last_mode == "Adding":
+            if not app.textinput_open and len(app.edit_content) > 0:
+                if app.last_mode == "Add Task":
                     board.stage.add(Task(name=app.edit_content))
-                elif app.last_mode == "Editing":
+                elif app.last_mode == "Edit Task":
                     board.stage.task.name = app.edit_content
+                elif app.last_mode == "Add Stage":
+                    board.add_stage(Stage(title=app.edit_content))
+                elif app.last_mode == "Edit Stage":
+                    board.stage.title = app.edit_content
         else:
             if key == ord("q"):
                 break
@@ -199,11 +206,19 @@ def main(stdscr: curses.window) -> None:
             elif key == ord("K"):
                 board.stage.move_task(-1)
             elif key == ord("a"):
-                app.enable_edit_mode()
+                app.enable_add_mode(mode="Add Task")
             elif key == ord("e"):
-                app.enable_edit_mode(board.stage.task.name)
+                app.enable_edit_mode(
+                    mode="Edit Task", initial_text=board.stage.task.name
+                )
+            elif key == ord("A"):
+                app.enable_add_mode(mode="Add Stage")
+            elif key == ord("E"):
+                app.enable_edit_mode(mode="Edit Stage", initial_text=board.stage.title)
             elif key == ord("\t"):
                 board.next()
+            elif key == curses.KEY_BTAB:
+                board.prev()
             elif key == ord("\n"):
                 board = board.goto_next_board(
                     stage_idx=board.selected, task_idx=board.stage.selected

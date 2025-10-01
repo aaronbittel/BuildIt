@@ -139,6 +139,11 @@ class Board:
         if self.selected >= len(self.stages):
             self.selected = 0
 
+    def prev(self) -> None:
+        self.selected -= 1
+        if self.selected < 0:
+            self.selected = 0
+
     def forward_task(self) -> None:
         if self.selected == len(self.stages) - 1 or len(self.stage) == 0:
             return
@@ -150,6 +155,9 @@ class Board:
             return
         task = self.stage.pop()
         self.stages[self.selected - 1].add(task)
+
+    def add_stage(self, stage: Stage) -> None:
+        self.stages.append(stage)
 
     def __str__(self) -> str:
         def maxlen(stage: Stage) -> int:
