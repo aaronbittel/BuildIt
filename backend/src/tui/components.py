@@ -9,44 +9,54 @@ from src.tui.utils import ELLIPSIS
 
 def box(
     rect: Rect,
-    title: str,
-    content: list[str],
-    selected: int,
+    lines: list[str],
+    selected: int = -1,
+    title: str = "",
+    *,
     highlighted: bool = False,
+    rounded: bool = False,
+    squash: bool = True,
 ):
     height, width, y, x = rect
     win = curses.newwin(height, width, y, x)
 
+    upper_left_corner = "╭" if rounded else curses.ACS_ULCORNER
+    upper_right_corner = "╮" if rounded else curses.ACS_URCORNER
+    lower_left_corner = "╰" if rounded else curses.ACS_LLCORNER
+    lower_right_corner = "╯" if rounded else curses.ACS_LRCORNER
+
     # Draw Border
     color = curses.color_pair(1) if highlighted else curses.color_pair(0)
-    win.addch(0, 0, curses.ACS_ULCORNER, color)
+    win.addch(0, 0, upper_left_corner, color)
     win.hline(0, 1, curses.ACS_HLINE, width - 2, color)
-    win.addch(0, width - 1, curses.ACS_URCORNER, color)
+    win.addch(0, width - 1, upper_right_corner, color)
 
     for y in range(1, height + 1):
         with suppress(_curses.error):
             win.addch(y, 0, curses.ACS_VLINE, color)
             win.addch(y, width - 1, curses.ACS_VLINE, color)
 
-    win.addch(height - 1, 0, curses.ACS_LLCORNER, color)
+    win.addch(height - 1, 0, lower_left_corner, color)
     win.hline(height - 1, 1, curses.ACS_HLINE, width - 2, color)
     with suppress(_curses.error):
-        win.addch(height - 1, width - 1, curses.ACS_LRCORNER, color)
+        win.addch(height - 1, width - 1, lower_right_corner, color)
 
     # Draw Content
     if len(title) > width:
         title = title[: width - 1] + ELLIPSIS
 
     if width > 4:
-        win.addstr(0, (width - len(title)) // 2, title, curses.A_BOLD)
-        for i, line in enumerate(content):
-            if len(line) > width - 4:
+        if title:
+            win.addstr(0, (width - len(title)) // 2, title, curses.A_BOLD)
+        for i, line in enumerate(lines):
+            if squash and len(line) > width - 4:
                 line = line[: width - 4 - 1] + ELLIPSIS
             with suppress(_curses.error):
                 win.addstr(i + 1, 2, line)
             if highlighted:
                 if i == selected:
                     win.chgat(i + 1, 1, width - 2, curses.color_pair(2))
+
     win.refresh()
 
 

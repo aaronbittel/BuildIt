@@ -72,6 +72,10 @@ class Stage:
         out = f"Stage(title={self.title}, tasks={task_repr})"
         return out
 
+    @property
+    def task(self) -> Task:
+        return self.tasks[self.selected]
+
 
 class Board:
     DefaultStages = ["Backlog", "In Progress", "Done"]

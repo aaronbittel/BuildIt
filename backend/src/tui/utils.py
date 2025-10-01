@@ -16,6 +16,7 @@ ELLIPSIS = "…"
 
 KEY_EXIT = 7
 KEY_ENTER = 10
+KEY_ESC = 27
 KEY_IGNORE = 0
 
 
@@ -127,3 +128,26 @@ def hide_cursor(func):
             curses.curs_set(1)
 
     return wrapper_func
+
+
+def split_text_into_lines(text: str, width: int) -> list[str]:
+    logging.debug(f"input='{text}'")
+    lines: list[str] = []
+    cur = 0
+    while cur + width < len(text):
+        logging.debug(f"segment: {text[cur : cur + width]}")
+        last_space_idx = text[cur : cur + width].rfind(" ")
+        if last_space_idx == -1:
+            logging.debug("no space found")
+            lines.append(text[cur : cur + width])
+            cur += width
+        elif last_space_idx == 0:
+            cur += 1
+        else:
+            logging.debug(f"space found at {last_space_idx}")
+            lines.append(text[cur : cur + last_space_idx])
+            cur += last_space_idx
+        logging.debug(f"{lines=}")
+    if cur < len(text):
+        lines.append(text[cur:])
+    return list(map(lambda s: s.strip(), lines))
