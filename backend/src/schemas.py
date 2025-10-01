@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import field
 import sqlite3
-
-from pydantic import BaseModel as BaseSchema, Field
+from dataclasses import field
 from typing import Self
+
+from pydantic import BaseModel as BaseSchema
+from pydantic import Field
 
 
 class StageCreate(BaseSchema):

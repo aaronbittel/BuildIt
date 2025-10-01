@@ -1,8 +1,8 @@
 import logging
 import os
+import sqlite3
 from contextlib import asynccontextmanager
 from pathlib import Path
-import sqlite3
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
@@ -19,11 +19,12 @@ from starlette.status import (
 from src.dev_utils import DB_SNAPSHOTS_PATH, router
 from src.helpers import (
     CursorDep,
-    init_schema,
     init_conn,
+    init_schema,
     load_schema_into_db,
 )
 from src.repository import (
+    DEFAULT_SCHEMA,
     MultipleRowsUpdated,
     NoFieldsToUpdate,
     delete_task_by_id,
@@ -33,7 +34,6 @@ from src.repository import (
     insert_stage,
     insert_task,
     patch_task,
-    DEFAULT_SCHEMA,
     update_task_ordering,
 )
 from src.schemas import (

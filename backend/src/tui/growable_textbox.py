@@ -1,6 +1,6 @@
 import curses
-from curses import textpad
 import logging
+from curses import textpad
 
 from src.tui.utils import (
     KEY_ENTER,

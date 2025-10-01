@@ -1,8 +1,8 @@
 from __future__ import annotations
-from dataclasses import dataclass
-from typing import Self
 
 import random
+from dataclasses import dataclass
+from typing import Self
 
 
 def random_tasks() -> list[str]:

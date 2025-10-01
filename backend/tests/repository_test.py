@@ -6,13 +6,13 @@ import pytest
 from fastapi.testclient import TestClient
 from starlette.status import HTTP_200_OK
 
-from src.main import app, init_schema, init_conn
+from src.main import app, init_conn, init_schema
 from src.repository import (
+    DEFAULT_SCHEMA,
     fetch_all_tasks_by_stage_id,
     fetch_task_by_id,
     insert_stage,
     insert_task,
-    DEFAULT_SCHEMA,
 )
 from src.schemas import StageCreate, StagePublic, TaskCreate, TaskPublic
 

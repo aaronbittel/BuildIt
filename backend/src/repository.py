@@ -2,16 +2,17 @@ from __future__ import annotations
 
 from sqlite3 import Cursor
 
-from pypika import Query, Table, functions as fn
+from pypika import Query, Table
+from pypika import functions as fn
 
 from src.schemas import (
     StageCreate,
     StageDetail,
     StagePublic,
     TaskCreate,
+    TaskMoveUpdate,
     TaskNameUpdate,
     TaskPublic,
-    TaskMoveUpdate,
 )
 
 DEFAULT_SCHEMA = """
