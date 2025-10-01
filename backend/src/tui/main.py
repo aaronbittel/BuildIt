@@ -201,16 +201,19 @@ def main(stdscr: curses.window) -> None:
                 board.forward_task()
             elif key == ord("p"):
                 board.recall_task()
-            elif key == ord("J"):
-                board.stage.move_task(1)
-            elif key == ord("K"):
-                board.stage.move_task(-1)
             elif key == ord("a"):
                 app.enable_add_mode(mode="Add Task")
             elif key == ord("e"):
                 app.enable_edit_mode(
                     mode="Edit Task", initial_text=board.stage.task.name
                 )
+            elif key == ord("x"):
+                if len(board.stage) > 0:
+                    board.stage.pop()
+            elif key == ord("J"):
+                board.stage.move_task(1)
+            elif key == ord("K"):
+                board.stage.move_task(-1)
             elif key == ord("A"):
                 app.enable_add_mode(mode="Add Stage")
             elif key == ord("E"):
