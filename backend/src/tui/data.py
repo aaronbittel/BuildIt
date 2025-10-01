@@ -112,22 +112,30 @@ class Board:
         cls,
         title: str,
         prev_board: Board | None = None,
+        *,
+        # FIXME: Remove me later
+        prefilled: bool = False,
     ) -> Self:
+        get_tasks = lambda: [Task(name) for name in random_tasks()] if prefilled else []
         return cls(
             title,
-            stages=[
-                Stage(t, tasks=[Task(name) for name in random_tasks()])
-                for t in Board.DefaultStages
-            ],
+            stages=[Stage(t, tasks=get_tasks()) for t in Board.DefaultStages],
             prev_board=prev_board,
         )
 
-    def goto_next_board(self, stage_idx: int, task_idx: int) -> Board:
+    def goto_next_board(
+        self,
+        stage_idx: int,
+        task_idx: int,
+        *,
+        # FIXME: Remove me later
+        prefilled: bool = False,
+    ) -> Board:
         task = self.stages[stage_idx].tasks[task_idx]
         if task.next_board is not None:
             return task.next_board
 
-        board = Board.default(title=task.name, prev_board=self)
+        board = Board.default(title=task.name, prev_board=self, prefilled=prefilled)
         task.next_board = board
         return board
 

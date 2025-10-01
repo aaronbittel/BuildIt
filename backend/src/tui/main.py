@@ -6,7 +6,7 @@ from typing import Literal
 from data import Board, Stage, Task
 
 from src.tui.components import box, text
-from src.tui.layout import Layout
+from src.tui.layout import Layout, Rect
 from src.tui.utils import KEY_ESC, show_cursor, split_text_into_lines
 
 logging.basicConfig(filename="app.log", level=logging.DEBUG, filemode="w")
@@ -18,6 +18,9 @@ class App:
         self.buf: list[str] = []
         self._cur_mode: Mode | None = None
         self._last_mode: Mode | None = None
+        self.show_popup = False
+
+        self._pressed_s = 0
 
     def handle_key(self, key: int) -> None:
         logging.debug(f"{key=}")
@@ -77,7 +80,8 @@ def display_title(layout: Layout, title: str) -> None:
     )
 
 
-def board_view(layout: Layout, board: Board) -> None:
+def board_view(layout: Layout, board: Board) -> list[Rect]:
+    rects: list[Rect] = []
     for i, stage in enumerate(board.stages):
         content = list(map(lambda t: t.name, stage.tasks))
         rect = layout.next_rect(height=max(len(content) + 2, 5))
@@ -90,6 +94,8 @@ def board_view(layout: Layout, board: Board) -> None:
             highlighted=highlighted,
             rounded=False,
         )
+        rects.append(rect)
+    return rects
 
 
 def main(stdscr: curses.window) -> None:
@@ -103,7 +109,17 @@ def main(stdscr: curses.window) -> None:
     stages = [
         Stage("Backlog", tasks=[Task("Todo 1"), Task("Todo 2")]),
         Stage("In Progress", tasks=[Task("Task 1"), Task("Task 2"), Task("Task 3")]),
-        Stage("Done", tasks=[Task("Done 1"), Task("Done 2"), Task("Done 3")]),
+        Stage(
+            "Done",
+            tasks=[
+                Task(
+                    "A really really long Message to Display. A really really long Message to Display. A really really long Message to Display."
+                ),
+                Task("Done 1"),
+                Task("Done 2"),
+                Task("Done 3"),
+            ],
+        ),
     ]
     board = Board(title="Main Board", stages=stages)
 
@@ -123,6 +139,7 @@ def main(stdscr: curses.window) -> None:
     logging.info(f"{rows=} {cols=}")
 
     while True:
+        board_rects: list[Rect] = []
         stdscr.erase()
         stdscr.refresh()
 
@@ -144,16 +161,17 @@ def main(stdscr: curses.window) -> None:
                 columns=len(board.stages),
             ) as h_ok:
                 if h_ok:
-                    board_view(layout, board)
+                    board_rects = board_view(layout, board)
 
             if not h_ok:
                 with layout.vertical(
+                    screen_padding=1,
                     spacing=0,
                     child_min_width=stage_min_width,
                     rows=len(board.stages),
                 ) as v_ok:
                     if v_ok:
-                        board_view(layout, board)
+                        board_rects = board_view(layout, board)
 
             if app.textinput_open:
                 # FIXME: Space does not get rendered
@@ -176,6 +194,27 @@ def main(stdscr: curses.window) -> None:
                         )
                         if not app.buf:
                             stdscr.move(rect.y + 1, rect.x + 2)
+
+            # TODO: Hide away this mess
+            if app.show_popup:
+                logging.info("showing popup")
+                lines = split_text_into_lines(
+                    text=board.stage.task.name, width=edit_width - 3
+                )
+                popup_width = max(map(len, lines)) + 4
+                selected_rect = board_rects[board.selected]
+                popup_height = len(lines) + 2
+                popup_y = selected_rect.y + board.stage.selected + 1 - popup_height
+                popup_x = selected_rect.x + 1
+
+                if popup_x + popup_width > cols:
+                    popup_x += cols - (popup_x + popup_width)
+                if popup_y < 0:
+                    popup_y = selected_rect.y + board.stage.selected + 1 + 1
+                rect = Rect(
+                    height=popup_height, width=popup_width, y=popup_y, x=popup_x
+                )
+                box(rect, lines, rounded=True)
 
         key = stdscr.getch()
 
@@ -204,12 +243,22 @@ def main(stdscr: curses.window) -> None:
             elif key == ord("a"):
                 app.enable_add_mode(mode="Add Task")
             elif key == ord("e"):
-                app.enable_edit_mode(
-                    mode="Edit Task", initial_text=board.stage.task.name
-                )
+                if len(board.stage) > 0:
+                    app.enable_edit_mode(
+                        mode="Edit Task", initial_text=board.stage.task.name
+                    )
+                else:
+                    app.enable_add_mode(mode="Add Task")
             elif key == ord("x"):
                 if len(board.stage) > 0:
                     board.stage.pop()
+            elif key == ord("s"):
+                if len(board.stage) == 0:
+                    continue
+                rect = board_rects[board.selected]
+                if rect.width - 4 < len(board.stage.task.name):
+                    app.show_popup = True
+                    app._pressed_s += 1
             elif key == ord("J"):
                 board.stage.move_task(1)
             elif key == ord("K"):
@@ -224,10 +273,19 @@ def main(stdscr: curses.window) -> None:
                 board.prev()
             elif key == ord("\n"):
                 board = board.goto_next_board(
-                    stage_idx=board.selected, task_idx=board.stage.selected
+                    stage_idx=board.selected,
+                    task_idx=board.stage.selected,
+                    prefilled=False,
                 )
             elif key == KEY_ESC:
                 board = board.goto_prev_board()
+
+            # FIXME: make it better
+            if key != ord("s") and app.show_popup:
+                app._pressed_s += 1
+                app.show_popup = False
+            elif key == ord("s") and app._pressed_s % 2 == 0:
+                app.show_popup = False
 
         if key == curses.KEY_RESIZE:
             rows, cols = stdscr.getmaxyx()

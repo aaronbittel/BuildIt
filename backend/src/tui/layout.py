@@ -72,12 +72,12 @@ class Layout:
         screen_padding: int = 0,
         spacing: int = 0,
         columns: int = 1,
+        # FIXME: handle child_min_width = None
         child_min_width: int | None = None,
         child_min_height: int | None = None,
         **kwargs,
     ) -> bool:
         total_width = self.cols - (screen_padding * 2 + (columns - 1) * spacing)
-        # TODO: use floats
         frac_width_per_child = Fraction(total_width, columns)
 
         if child_min_width is not None and frac_width_per_child < child_min_width:
@@ -111,7 +111,7 @@ class Layout:
 
     def _begin_vertical(
         self,
-        screen_padding: int = 1,
+        screen_padding: int = 0,
         spacing: int = 0,
         rows: int = 1,
         child_min_width: int | None = None,

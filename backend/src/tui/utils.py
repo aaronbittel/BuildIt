@@ -76,7 +76,6 @@ def get_input(
     lines = 1
     if text is not None and len(text) > width:
         lines = math.ceil(len(text) / width)
-        logging.debug(f"{lines=}")
 
     edit_win = curses.newwin(lines, width, y, x)
     if text is not None:
@@ -131,11 +130,9 @@ def hide_cursor(func):
 
 
 def split_text_into_lines(text: str, width: int) -> list[str]:
-    logging.debug(f"input='{text}'")
     lines: list[str] = []
     cur = 0
     while cur + width < len(text):
-        logging.debug(f"segment: {text[cur : cur + width]}")
         last_space_idx = text[cur : cur + width].rfind(" ")
         if last_space_idx == -1:
             logging.debug("no space found")
@@ -144,10 +141,8 @@ def split_text_into_lines(text: str, width: int) -> list[str]:
         elif last_space_idx == 0:
             cur += 1
         else:
-            logging.debug(f"space found at {last_space_idx}")
             lines.append(text[cur : cur + last_space_idx])
             cur += last_space_idx
-        logging.debug(f"{lines=}")
     if cur < len(text):
         lines.append(text[cur:])
     return list(map(lambda s: s.strip(), lines))
