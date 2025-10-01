@@ -1,396 +1,427 @@
-import _curses
+from contextlib import contextmanager, suppress
 import curses
 import logging
-from contextlib import suppress
-from curses import A_NORMAL, KEY_RESIZE
+import _curses
+from dataclasses import dataclass
+from types import TracebackType
+from typing import Generator, NamedTuple, Self
 
-from src.tui.growable_textbox import GrowableTextbox
-from src.tui.stage_view import Stage, Task
-from src.tui.stage_view_list import StageListView
-from src.tui.utils import (
-    border,
-    get_input,
-    hide_cursor,
-    title,
-)
+from data import Board, Stage, Task
 
-logging.basicConfig(
-    filename="app.log",
-    filemode="w",
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-)
+logging.basicConfig(filename="app.log", level=logging.ERROR, filemode="w")
+
+ELLIPSIS = "…"
 
 
-GREEN_ON_BLACK = 1
-BLACK_ON_GREEN = 2
-YELLOW_ON_BLACK = 3
-
-# TODO: use floats for calculation for precise results
-# TODO: use win.mvwin and / or win.resize instead of creating new windows (if its
-# easier)
-# TODO: Look into this: erase, noutrefresh, doupdate, etc.
+class Rect(NamedTuple):
+    height: int
+    width: int
+    y: int
+    x: int
 
 
-stages = [
-    Stage(
-        name="Backlog",
-        tasks=[
-            Task(name="use floats for calculation for precise results"),
-            Task(
-                name="use win.mvwin and / or win.resize instead of creating new windows (if its easier)"
-            ),
-            Task(name="Look into this: erase, noutrefresh, doupdate, etc."),
-        ],
-    ),
-    Stage(
-        name="In Progress",
-        tasks=[
-            Task(name="Task 1"),
-            Task(name="Task 2"),
-            Task(name="Long Long Long Message"),
-        ],
-    ),
-    Stage(
-        name="Done",
-        tasks=[
-            Task(name="Finished 1"),
-            Task(name="Finished 2"),
-            Task(name="Finished 3"),
-            Task(name="Another One"),
-        ],
-    ),
-]
+@dataclass
+class LayoutState:
+    last: bool = False
+
+    next_cursor_x: int = 0
+    next_cursor_y: int = 0
+
+    columns: int = 0
+    rows: int = 0
+
+    screen_padding: int = 1
+    spacing: int = 0
+
+    total_width: int = 0
+    total_height: int = 0
+    width_per_child: int = 0
+    child_height: int = 0
+    child_min_width: int = 0
+    child_min_height: int = 0
+    max_content_height: int = 0
+    max_content_width: int = 0
+
+    use_vertical_layout: bool = False
+    expand: bool = False
 
 
-def help(rows: int, cols: int, *, help_open: bool) -> None:
-    content = [
-        "?  Toggle Help",
-        "q  Quit",
-        "a  Add Task",
-        "e  Edit Selected Task",
-        "j  Next Task",
-        "k  Previous Task",
-        "x  Remove Selected Task",
-        "n  Move Task Forward",
-        "p  Move Task Back",
-        "J  Move Task Down",
-        "K  Move Task Up",
-        "E  Edit Current Stage",
-        "N  Add New Stage",
-        "X  Remove Current Stage",
-        "Tab        Next Stage",
-        "Shift+Tab  Previous Stage",
-    ]
+class Layout:
+    def __init__(
+        self,
+        win: curses.window,
+        rows: int,
+        cols: int,
+        # TODO: maybe remove these
+        y: int = 0,
+        x: int = 0,
+    ) -> None:
+        self.win = win
+        self.rows = rows
+        self.cols = cols
+        self.y = y
+        self.x = x
 
-    maxlen = max(map(len, content))
+        self._state_stack: list[LayoutState] = []
 
-    win = curses.newwin(
-        len(content) + 1, maxlen + 1, rows - len(content), cols // 2 - maxlen // 2
-    )
+    def __enter__(self) -> Self:
+        return self
 
-    if not help_open:
-        for i, line in enumerate(content):
-            win.addstr(i, 0, line)
-    else:
-        win.clear()
-    win.refresh()
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> bool:
+        self._end()
 
+    def _begin_horizontal(
+        self,
+        screen_padding: int = 0,
+        spacing: int = 0,
+        columns: int = 1,
+        child_min_width: int | None = None,
+        child_min_height: int | None = None,
+        *,
+        expand: bool = False,
+        **kwargs,
+    ) -> bool:
+        total_width = self.cols - (screen_padding * 2 + (columns - 1) * spacing)
+        # TODO: use floats
+        logging.error(f"fraction={total_width / columns} int={total_width // columns}")
+        width_per_child = total_width // columns
 
-def split_text_into_lines(text: str, width: int) -> list[str]:
-    lines: list[str] = []
-    cur = 0
-    while cur + width < len(text):
-        logging.debug(f"segment: {text[cur : cur + width]}")
-        last_space_idx = text[cur : cur + width].rfind(" ")
-        if last_space_idx == -1:
-            logging.debug("no space found")
-            lines.append(text[cur : cur + width])
-            cur += width
-        elif last_space_idx == 0:
-            cur += 1
+        if child_min_width is not None and width_per_child < child_min_width:
+            return False
+
+        self._state_stack.append(
+            LayoutState(
+                next_cursor_x=screen_padding,
+                next_cursor_y=self.y,
+                spacing=spacing,
+                screen_padding=screen_padding,
+                total_width=total_width,
+                width_per_child=width_per_child,
+                columns=columns,
+                child_min_width=child_min_width,
+                child_min_height=child_min_height,
+                expand=expand,
+            )
+        )
+        return True
+
+    def _end_horizontal(self, after_spacing: int = 0, **kwargs) -> None:
+        layout_state = self._state_stack.pop()
+
+        self.y = (
+            layout_state.next_cursor_y + layout_state.max_content_height + after_spacing
+        )
+
+        logging.error(
+            f"same y={layout_state.next_cursor_y} adding max_height={layout_state.max_content_height} + {after_spacing=} now @ = {self.y=}"
+        )
+
+        self.x = 0
+
+    def _begin_vertical(
+        self,
+        screen_padding: int = 1,
+        spacing: int = 0,
+        rows: int = 1,
+        child_min_width: int | None = None,
+        child_min_height: int | None = None,
+        *,
+        expand: bool = True,
+        **kwargs,
+    ) -> None:
+        available_width_per_child = self.cols - 2 * screen_padding
+
+        logging.info(f"{available_width_per_child=} {child_min_width=}")
+
+        if available_width_per_child < child_min_width:
+            return False
+
+        self._state_stack.append(
+            LayoutState(
+                next_cursor_y=self.y,
+                next_cursor_x=screen_padding,
+                screen_padding=screen_padding,
+                spacing=spacing,
+                rows=rows,
+                child_min_width=child_min_width,
+                child_min_height=child_min_height,
+                expand=expand,
+                width_per_child=available_width_per_child,
+                use_vertical_layout=True,
+            )
+        )
+
+        return True
+
+    def _end_vertical(self, after_spacing: int = 0, **kwargs) -> None:
+        layout_state = self._state_stack.pop()
+        logging.error(f"{layout_state.next_cursor_y=}")
+
+        logging.error(f"adding {after_spacing=}")
+        self.y = layout_state.next_cursor_y + after_spacing
+        logging.error(f"y after group {self.y}")
+        self.x = 0
+
+    def next_rect(self, height: int, width: int | None = None) -> Rect:
+        layout_state = self._state_stack[-1]
+        logging.warning(layout_state)
+
+        last = False
+
+        if layout_state.use_vertical_layout:
+            layout_state.rows -= 1
+            last = layout_state.rows == 0
         else:
-            logging.debug(f"space found at {last_space_idx}")
-            lines.append(text[cur : cur + last_space_idx])
-            cur += last_space_idx
-        logging.debug(f"{lines=}")
-    if cur < len(text):
-        lines.append(text[cur:])
-    return list(map(lambda s: s.strip(), lines))
+            layout_state.columns -= 1
+            last = layout_state.columns == 0
+
+        y = layout_state.next_cursor_y
+        x = layout_state.next_cursor_x
+
+        width = width if width else layout_state.width_per_child
+
+        # for horizontal layout
+        layout_state.max_content_height = max(layout_state.max_content_height, height)
+
+        logging.warning(f"cursor_y={layout_state.next_cursor_y}")
+
+        spacing = 0 if last else layout_state.spacing
+        if layout_state.use_vertical_layout:
+            logging.error(
+                f"last={last} {spacing=} i am @ y={y} and adding {height + layout_state.spacing}",
+            )
+            layout_state.next_cursor_y += height + spacing
+        else:
+            layout_state.next_cursor_x += width + layout_state.spacing
+
+        logging.error(f"cursor_y={layout_state.next_cursor_y}")
+
+        logging.warning(f"rect: {y=} {x=} {height=} {width=}")
+        return Rect(
+            y=y,
+            x=x,
+            height=height,
+            width=width,
+        )
+
+    def _begin(self, y: int = 0, x: int = 0) -> None:
+        self.cursor_y = y
+        self.cursor_x = x
+
+    def _end(self) -> None: ...
+
+    @contextmanager
+    def horizontal(self, **kwargs) -> Generator[Self, None, None]:
+        if self._begin_horizontal(**kwargs):
+            try:
+                yield True
+            finally:
+                self._end_horizontal(**kwargs)
+        else:
+            yield False
+
+    @contextmanager
+    def vertical(self, **kwargs) -> Generator[Self, None, None]:
+        if self._begin_vertical(**kwargs):
+            try:
+                yield True
+            finally:
+                self._end_vertical(**kwargs)
+        else:
+            yield False
 
 
-def expand_text(
-    cursor_y: int, cursor_x: int, max_width: int, text: str, rows: int, cols: int
-) -> tuple[curses.window, curses.window]:
-    lines = split_text_into_lines(text, max_width)
-    width = max(map(len, lines))
+def box(
+    rect: Rect,
+    title: str,
+    content: list[str],
+    selected: int,
+    highlighted: bool = False,
+):
+    height, width, y, x = rect
+    win = curses.newwin(height, width, y, x)
 
-    if cursor_y - len(lines) - 2 >= 0:  # border (2)
-        y = cursor_y - len(lines) - 1  # only bborder(1)
-    else:
-        y = cursor_y + 2
+    # Draw Border
+    color = curses.color_pair(1) if highlighted else curses.color_pair(0)
+    win.addch(0, 0, curses.ACS_ULCORNER, color)
+    win.hline(0, 1, curses.ACS_HLINE, width - 2, color)
+    win.addch(0, width - 1, curses.ACS_URCORNER, color)
 
-    win = curses.newwin(len(lines), width, y, cursor_x)
-    border_win = border(win)
-    border_win.refresh()
-    for i, line in enumerate(lines):
+    for y in range(1, height + 1):
         with suppress(_curses.error):
-            win.addstr(i, 0, line)
-    win.refresh()
-    return win, border_win
+            win.addch(y, 0, curses.ACS_VLINE, color)
+            win.addch(y, width - 1, curses.ACS_VLINE, color)
 
+    win.addch(height - 1, 0, curses.ACS_LLCORNER, color)
+    win.hline(height - 1, 1, curses.ACS_HLINE, width - 2, color)
+    with suppress(_curses.error):
+        win.addch(height - 1, width - 1, curses.ACS_LRCORNER, color)
 
-def confirm(
-    rows: int,
-    cols: int,
-    message: str,
-    min_width: int = 20,
-    title: str = "Confirm",
-    border_color: int | None = None,
-) -> bool:
-    # FIXME:
-    def draw_choices(win: curses.window, selected: bool = True) -> None:
-        yes, no = "Yes", "No"
-        confirm_space = 4
-        confirm_width = len(yes) + confirm_space + len(no)  # spaces(4)
-        yes_start = width // 2 - confirm_width // 2
-        attr = curses.A_REVERSE if selected else A_NORMAL
-        win.addstr(height - 2, yes_start, yes, attr)
-        attr = curses.A_REVERSE if not selected else A_NORMAL
-        win.addstr(height - 2, yes_start + len(yes) + confirm_space, no, attr)
+    # Draw Content
+    if len(title) > width:
+        title = title[: width - 1] + ELLIPSIS
 
-    def draw_choice(win: curses.window) -> None:
-        yes, no = "Yes", "No"
-        confirm_space = 4
-        confirm_width = len(yes) + confirm_space + len(no)  # spaces(4)
-        yes_start = width // 2 - confirm_width // 2
-        win.addstr(height - 2, yes_start, yes)
-        win.addstr(height - 2, yes_start + len(yes) + confirm_space, no)
-
-    split_width = max(cols // 2, min_width)
-    lines = split_text_into_lines(text=message, width=split_width)
-    height = len(lines) + 2 + 1 + 1  # space(2) + Yes/No(1) + space(1)
-
-    maxlen = max(map(len, lines))
-    width = maxlen + 2
-
-    win = curses.newwin(
-        height,
-        width,
-        rows // 2 - height // 2,
-        cols // 2 - width // 2,
-    )
-    color = border_color if border_color is not None else GREEN_ON_BLACK
-    border_win = border(win, title, color=color)
-
-    for i, line in enumerate(lines, start=1):
-        win.addstr(i, 1, line)
-
-    draw_choices(win)
+    if width > 4:
+        win.addstr(0, (width - len(title)) // 2, title, curses.A_BOLD)
+        for i, line in enumerate(content):
+            if len(line) > width - 4:
+                line = line[: width - 4 - 1] + ELLIPSIS
+            with suppress(_curses.error):
+                win.addstr(i + 1, 2, line)
+            logging.debug(f"Line {i}: {line} -> at y={i + 1} x={2}")
+            if highlighted:
+                if i == selected:
+                    win.chgat(i + 1, 1, width - 2, curses.color_pair(2))
     win.refresh()
 
-    selected = True
 
-    while True:
-        key = win.getch()
+def text(rect: Rect, s: str, attr: int = 0, centered: bool = True) -> None:
+    height, width, y, x = rect
+    height = height if height is not None else 1
+    logging.debug(f"text win: {y=} {x=} {height=} {width=}")
+    win = curses.newwin(height, width, y, x)
+    win.bkgd(" ", curses.color_pair(3))
 
-        if key in map(ord, ("l", "L", "h", "H")):
-            selected = not selected
-            draw_choices(win, selected)
-            win.refresh()
-        elif key == ord("\n"):
-            break
-        elif key in map(ord, ("y", "Y")):
-            selected = True
-            break
-        elif key in map(ord, ("n", "N", "q", "Q")):
-            selected = False
-            break
-        elif key == KEY_RESIZE:
-            logging.info("RESIZE in DIALOG")
+    if len(s) > width:
+        s = s[: width - 1] + ELLIPSIS
 
-    draw_choice(win)
+    start_x = width // 2 - len(s) // 2 if centered else 0
+    logging.debug(f"{start_x=} {s} {len(s)=}")
+    with suppress(_curses.error):
+        win.addstr(0, start_x, s, attr)
+
     win.refresh()
-    curses.napms(40)
-    draw_choices(win, selected)
-    win.refresh()
-    curses.napms(120)
-    win.clear()
-    win.refresh()
-    border_win.clear()
-    border_win.refresh()
-    return selected
 
 
-@hide_cursor
-def main(stdscr: curses.window):
+def board_view(layout: Layout, board: Board) -> None:
+    for i, stage in enumerate(board.stages):
+        content = list(map(lambda t: t.name, stage.tasks))
+        rect = layout.next_rect(height=max(len(content) + 2, 5))
+        highlighted = i == board.selected
+        box(
+            rect=rect,
+            title=stage.title,
+            content=content,
+            selected=board.stage.selected,
+            highlighted=highlighted,
+        )
+
+
+def main(stdscr: curses.window) -> None:
+    curses.set_escdelay(25)
     curses.start_color()
-    curses.init_pair(GREEN_ON_BLACK, curses.COLOR_GREEN, curses.COLOR_BLACK)
-    curses.init_pair(BLACK_ON_GREEN, curses.COLOR_BLACK, curses.COLOR_GREEN)
-    curses.init_pair(YELLOW_ON_BLACK, curses.COLOR_YELLOW, curses.COLOR_BLACK)
+    curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)
+    curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_GREEN)
+    curses.init_pair(3, curses.COLOR_BLACK, curses.COLOR_CYAN)
+    curses.curs_set(0)
 
-    stdscr.keypad(True)
+    stages = [
+        Stage("Backlog", tasks=[Task("Todo 1"), Task("Todo 2")]),
+        Stage("In Progress", tasks=[Task("Task 1"), Task("Task 2"), Task("Task 3")]),
+        Stage("Done", tasks=[Task("Done 1"), Task("Done 2"), Task("Done 3")]),
+    ]
+    board = Board(title="Main Board", stages=stages)
 
-    stdscr.clear()
     stdscr.refresh()
 
     rows, cols = stdscr.getmaxyx()
+    layout = Layout(stdscr, rows, cols)
 
-    title_text = "Buildit! - Tui"
-    title(stdscr, cols=cols, text=title_text)
+    stage_min_width = 25
 
-    stage_view_list = StageListView(y=3, stages=stages, cols=cols, min_width=30)
+    while True:
+        logging.error(f"{rows=} {cols=}")
+        stdscr.erase()
+        stdscr.refresh()
 
-    alternate_stage_view_list = StageListView(
-        y=2,
-        stages=[
-            Stage(name="Backlog", tasks=[]),
-            Stage(name="In Progress", tasks=[]),
-            Stage(name="Done", tasks=[]),
-        ],
-        cols=cols,
-    )
+        with layout as l:
+            with l.vertical(spacing=20, after_spacing=4, child_min_width=5) as ok:
+                if ok:
+                    rect = layout.next_rect(height=1)
+                    text(
+                        rect,
+                        "Buildit! - TUI",
+                        attr=curses.A_BOLD | curses.A_UNDERLINE,
+                    )
 
-    def calc_edit_width(cols: int, min_width: int = 10) -> int:
-        return max(int(cols * 0.75), min_width)
+            with l.horizontal(
+                spacing=4,
+                after_spacing=2,
+                child_min_width=stage_min_width,
+                columns=len(board.stages),
+            ) as ok:
+                if ok:
+                    logging.info("use horizontal layout")
+                    board_view(layout, board)
 
-    edit_width = calc_edit_width(cols)
+            if not ok:
+                logging.info("use vertical layout")
+                with l.vertical(
+                    spacing=0,
+                    child_min_width=stage_min_width,
+                    after_spacing=1,
+                    rows=len(board.stages),
+                ) as ok:
+                    if ok:
+                        board_view(layout, board)
 
-    running = True
-    help_open = False
-    popup_win: curses.window | None = None
+            if not ok:
+                logging.info("no space at all")
 
-    textbox_text = ""
+            with l.horizontal(child_min_width=5, after_spacing=1) as ok:
+                if ok:
+                    rect = layout.next_rect(height=1)
+                    text(
+                        rect, "Buildit! - TUI", attr=curses.A_BOLD | curses.A_UNDERLINE
+                    )
 
-    while running:
-        stage_view_list.draw()
+            with l.vertical(child_min_width=5, row=3, spacing=0, after_spacing=0) as ok:
+                if ok:
+                    for _ in range(3):
+                        rect = layout.next_rect(height=1)
+                        text(
+                            rect,
+                            "Buildit! - TUI",
+                            attr=curses.A_BOLD | curses.A_UNDERLINE,
+                        )
+
+            with l.horizontal(
+                screen_padding=0, child_min_width=5, columns=5, spacing=2
+            ) as ok:
+                if ok:
+                    for _ in range(5):
+                        rect = layout.next_rect(height=1)
+                        text(
+                            rect,
+                            "Buildit! - TUI",
+                            centered=False,
+                            attr=curses.A_BOLD | curses.A_UNDERLINE,
+                        )
 
         key = stdscr.getch()
 
         if key == ord("q"):
-            running = False
-        elif key == ord("c"):
-            choice = confirm(
-                rows=rows,
-                cols=cols,
-                message="What about a really really long long longer Question?qqqqqq",
-                border_color=YELLOW_ON_BLACK,
-                title="[TEST CONFIRM DIALOG]",
-            )
-            stage_view_list.draw(force=True)
-            logging.debug(f"confirm: {choice}")
-        elif key == ord("?"):
-            help(rows, cols, help_open=help_open)
-            help_open = not help_open
-        elif key == ord("a"):
-            textbox = GrowableTextbox(
-                height=1,
-                width=edit_width,
-                y=stage_view_list.bottom + 1,
-                x=cols // 2 - edit_width // 2,
-                title="Add Task",
-                text=textbox_text,
-            )
-            task_name = textbox.edit()
-            textbox_text = task_name
-            if textbox.submitted and task_name != "":
-                stage_view_list.add_task(Task(name=task_name))
-                textbox_text = ""
-        elif key == ord("e"):
-            # FIXME: handle this better
-            if len(stage_view_list.selected.stage.tasks) == 0:
-                continue
-            x = max(cols // 2 - edit_width // 2, 1)
-            task_name = get_input(
-                y=stage_view_list.bottom + 1,
-                x=x,
-                width=edit_width,
-                text=stage_view_list.selected_task(),
-                title="Edit Task",
-            )
-            if task_name != "":
-                stage_view_list.update_task(task_name)
+            break
         elif key == ord("j"):
-            stage_view_list.next_task()
+            board.stage.next()
         elif key == ord("k"):
-            stage_view_list.prev_task()
-        elif key == ord("x"):
-            stage_view_list.remove_task()
-        elif key == ord("n"):
-            stage_view_list.move_task_forward()
-        elif key == ord("p"):
-            stage_view_list.move_task_back()
-        elif key == ord("J"):
-            stage_view_list.move_task(1)
-        elif key == ord("K"):
-            stage_view_list.move_task(-1)
-        elif key == ord("E"):
-            x = max(cols // 2 - edit_width // 2, 1)
-            task_name = get_input(
-                y=stage_view_list.bottom + 1,
-                x=x,
-                width=edit_width,
-                text=stage_view_list.selected.stage.name,
-                title="Edit Stage",
-            )
-            if task_name != "":
-                stage_view_list.edit_stage(task_name)
-        elif key == ord("N"):
-            x = max(cols // 2 - edit_width // 2, 1)
-            task_name = get_input(
-                y=stage_view_list.bottom + 1,
-                x=x,
-                width=edit_width,
-                title="Add Stage",
-            )
-            if task_name != "":
-                stage_view_list.add_stage(task_name)
-        elif key == ord("X"):
-            stage_view_list.remove_stage()
-        elif key == ord("s"):
-            if popup_win is None:
-                logging.debug("Drawing popup")
-                if not stage_view_list.selected.selected_fit:
-                    rows, cols = stdscr.getmaxyx()
-                    cursor_y, cursor_x = stage_view_list.selected.selected_position
-                    popup_win, border_win = expand_text(
-                        cursor_y=cursor_y,
-                        cursor_x=cursor_x,
-                        max_width=max(
-                            int(cols * 0.65), stage_view_list.selected.width - 3
-                        ),
-                        text=stage_view_list.selected.text,
-                        rows=rows,
-                        cols=cols,
-                    )
-            else:
-                logging.debug("Clearing popup")
-                popup_win.clear()
-                popup_win.refresh()
-                border_win.clear()
-                border_win.refresh()
-                popup_win = None
-                stage_view_list.draw(force=True)
+            board.stage.prev()
         elif key == ord("\t"):
-            stage_view_list.next_stage()
-        elif key == curses.KEY_BTAB:
-            stage_view_list.prev_stage()
+            board.next()
         elif key == ord("\n"):
-            if confirm(rows, cols, message="Create new StageView?"):
-                stage_view_list.clear()
-                stage_view_list, alternate_stage_view_list = (
-                    alternate_stage_view_list,
-                    stage_view_list,
-                )
-                stage_view_list.selected.blink(
-                    color_pair=BLACK_ON_GREEN, duration_ms=120
-                )
-            stage_view_list.draw(force=True)
+            board = board.goto_next_board(
+                stage_idx=board.selected, task_idx=board.stage.selected
+            )
+        elif key == 27:
+            board = board.goto_prev_board()
         elif key == curses.KEY_RESIZE:
             rows, cols = stdscr.getmaxyx()
-            title(stdscr, cols=cols, text=title_text)
-            stage_view_list.resize(cols)
-            edit_width = calc_edit_width(cols)
+        layout = Layout(stdscr, rows, cols)
 
 
 if __name__ == "__main__":
