@@ -187,9 +187,17 @@ def main(stdscr: curses.window) -> None:
             if key == ord("q"):
                 break
             elif key == ord("j"):
-                board.stage.next()
+                board.stage.next_task()
             elif key == ord("k"):
-                board.stage.prev()
+                board.stage.prev_task()
+            elif key == ord("n"):
+                board.forward_task()
+            elif key == ord("p"):
+                board.recall_task()
+            elif key == ord("J"):
+                board.stage.move_task(1)
+            elif key == ord("K"):
+                board.stage.move_task(-1)
             elif key == ord("a"):
                 app.enable_edit_mode()
             elif key == ord("e"):

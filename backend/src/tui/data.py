@@ -46,13 +46,28 @@ class Stage:
     def add(self, task: Task) -> None:
         self.tasks.append(task)
 
-    def next(self) -> None:
+    def pop(self) -> Task:
+        task = self.tasks.pop(self.selected)
+        self.selected = max(0, self.selected - 1)
+        return task
+
+    def next_task(self) -> None:
         if self.selected + 1 < len(self.tasks):
             self.selected += 1
 
-    def prev(self) -> None:
+    def prev_task(self) -> None:
         if self.selected - 1 >= 0:
             self.selected -= 1
+
+    def move_task(self, dir: int) -> None:
+        old_pos = self.selected
+        new_pos = old_pos + dir
+        if new_pos < 0 or new_pos >= len(self.tasks):
+            return
+
+        text = self.tasks.pop(old_pos)
+        self.tasks.insert(new_pos, text)
+        self.selected = new_pos
 
     def __getitem__(self, idx: int) -> Task:
         if idx >= len(self.tasks):
@@ -123,6 +138,18 @@ class Board:
         self.selected += 1
         if self.selected >= len(self.stages):
             self.selected = 0
+
+    def forward_task(self) -> None:
+        if self.selected == len(self.stages) - 1 or len(self.stage) == 0:
+            return
+        task = self.stage.pop()
+        self.stages[self.selected + 1].add(task)
+
+    def recall_task(self) -> None:
+        if self.selected == 0 or len(self.stage) == 0:
+            return
+        task = self.stage.pop()
+        self.stages[self.selected - 1].add(task)
 
     def __str__(self) -> str:
         def maxlen(stage: Stage) -> int:
