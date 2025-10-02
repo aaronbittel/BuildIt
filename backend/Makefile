@@ -3,5 +3,5 @@
 tui:
 	@uv run src/tui/main.py
 
-watch:
-	@uv run watchmedo auto-restart --patterns="*.py" -- uv run src/tui/main.py
+fix:
+	@uv tool run ruff check --extend-select I src/tui/ --fix .

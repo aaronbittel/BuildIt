@@ -27,7 +27,6 @@ def border(
     org_y, org_x = win.getbegyx()
 
     height, width = org_height + 2, org_width + 2
-    logging.info(f"{height=} {width=} {org_y=} {org_x=}")
     border_win = curses.newwin(height, width, org_y - 1, org_x - 1)
 
     color = curses.color_pair(color)
@@ -130,6 +129,8 @@ def hide_cursor(func):
 
 
 def split_text_into_lines(text: str, width: int) -> list[str]:
+    assert width > 0
+
     lines: list[str] = []
     cur = 0
     while cur + width < len(text):

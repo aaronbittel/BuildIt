@@ -31,3 +31,6 @@ testpaths = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/tui/data.py" = ["E731"]

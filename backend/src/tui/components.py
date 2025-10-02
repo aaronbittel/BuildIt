@@ -2,8 +2,7 @@ import _curses
 import curses
 from contextlib import suppress
 
-from src.tui.data import Board
-from src.tui.layout import Layout, Rect
+from src.tui.layout import Rect
 from src.tui.utils import ELLIPSIS
 
 
