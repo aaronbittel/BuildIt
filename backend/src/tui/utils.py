@@ -1,6 +1,5 @@
 import _curses
 import curses
-import logging
 import math
 from contextlib import contextmanager, suppress
 from curses import textpad
@@ -136,14 +135,20 @@ def split_text_into_lines(text: str, width: int) -> list[str]:
     while cur + width < len(text):
         last_space_idx = text[cur : cur + width].rfind(" ")
         if last_space_idx == -1:
-            logging.debug("no space found")
             lines.append(text[cur : cur + width])
             cur += width
         elif last_space_idx == 0:
             cur += 1
         else:
             lines.append(text[cur : cur + last_space_idx])
-            cur += last_space_idx
+            cur += last_space_idx + 1
     if cur < len(text):
         lines.append(text[cur:])
-    return list(map(lambda s: s.strip(), lines))
+    return lines
+
+
+def truncate(s: str, max_length: int, suffix: str = ELLIPSIS) -> str:
+    if len(s) <= max_length:
+        return s
+    assert max_length - len(suffix)
+    return s[: max_length - len(suffix)] + suffix

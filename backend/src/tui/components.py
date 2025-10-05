@@ -2,11 +2,59 @@ import _curses
 import curses
 from contextlib import suppress
 
+from src.tui.data import BoardResult, Event, Id, UIContext
 from src.tui.layout import Rect
-from src.tui.utils import ELLIPSIS
+from src.tui.utils import (
+    ELLIPSIS,
+    HORIZONTAL_BAR,
+    KEY_ESC,
+    ROUNDED_BOTTOMLEFT,
+    ROUNDED_BOTTOMRIGHT,
+    ROUNDED_TOPLEFT,
+    ROUNDED_TOPRIGHT,
+    VERTICAL_BAR,
+    split_text_into_lines,
+)
+
+
+def draw_border(
+    stdscr: curses.window,
+    rect: Rect,
+    title: str,
+    border_color: int = 0,
+    *,
+    rounded: bool,
+) -> None:
+    upper_left_corner = "╭" if rounded else "┌"
+    upper_right_corner = "╮" if rounded else "┐"
+    lower_left_corner = "╰" if rounded else "└"
+    lower_right_corner = "╯" if rounded else "┘"
+    color = curses.color_pair(border_color)
+
+    height, width, y, x = rect
+
+    stdscr.addch(y, x, upper_left_corner, color)
+    stdscr.addstr(y, x + 1, "─" * (width - 2), color)
+    stdscr.addch(y, x + width - 1, upper_right_corner, color)
+
+    if title:
+        if len(title) > width:
+            title = title[: width - 1] + ELLIPSIS
+        stdscr.addstr(y, x + (width - len(title)) // 2, title, curses.A_BOLD)
+
+    for row in range(1, height - 1):
+        with suppress(_curses.error):
+            stdscr.addch(y + row, x, "│", color)
+            stdscr.addch(y + row, x + width - 1, "│", color)
+
+    stdscr.addch(y + height - 1, x, lower_left_corner, color)
+    stdscr.addstr(y + height - 1, x + 1, "─" * (width - 2), color)
+    with suppress(_curses.error):
+        stdscr.addch(y + height - 1, x + width - 1, lower_right_corner, color)
 
 
 def box(
+    stdscr: curses.window,
     rect: Rect,
     lines: list[str],
     selected: int = -1,
@@ -16,60 +64,101 @@ def box(
     rounded: bool = False,
     squash: bool = True,
 ):
+    draw_border(
+        stdscr, rect, title=title, border_color=1 if highlighted else 0, rounded=False
+    )
+
     height, width, y, x = rect
-    win = curses.newwin(height, width, y, x)
-
-    upper_left_corner = "╭" if rounded else curses.ACS_ULCORNER
-    upper_right_corner = "╮" if rounded else curses.ACS_URCORNER
-    lower_left_corner = "╰" if rounded else curses.ACS_LLCORNER
-    lower_right_corner = "╯" if rounded else curses.ACS_LRCORNER
-
-    # Draw Border
-    color = curses.color_pair(1) if highlighted else curses.color_pair(0)
-    win.addch(0, 0, upper_left_corner, color)
-    win.hline(0, 1, curses.ACS_HLINE, width - 2, color)
-    win.addch(0, width - 1, upper_right_corner, color)
-
-    for y in range(1, height + 1):
-        with suppress(_curses.error):
-            win.addch(y, 0, curses.ACS_VLINE, color)
-            win.addch(y, width - 1, curses.ACS_VLINE, color)
-
-    win.addch(height - 1, 0, lower_left_corner, color)
-    win.hline(height - 1, 1, curses.ACS_HLINE, width - 2, color)
-    with suppress(_curses.error):
-        win.addch(height - 1, width - 1, lower_right_corner, color)
-
-    # Draw Content
-    if len(title) > width:
-        title = title[: width - 1] + ELLIPSIS
+    y += 1
+    x += 2
 
     if width > 4:
-        if title:
-            win.addstr(0, (width - len(title)) // 2, title, curses.A_BOLD)
-        for i, line in enumerate(lines):
+        for row, line in enumerate(lines):
             if squash and len(line) > width - 4:
                 line = line[: width - 4 - 1] + ELLIPSIS
             with suppress(_curses.error):
-                win.addstr(i + 1, 2, line)
+                stdscr.addstr(y + row, x, line)
             if highlighted:
-                if i == selected:
-                    win.chgat(i + 1, 1, width - 2, curses.color_pair(2))
-
-    win.refresh()
+                if row == selected:
+                    stdscr.chgat(y + row, x - 1, width - 2, curses.color_pair(2))
 
 
-def text(rect: Rect, s: str, attr: int = 0, centered: bool = True) -> None:
+def text(
+    stdscr: curses.window, rect: Rect, s: str, attr: int = 0, centered: bool = True
+) -> None:
     height, width, y, x = rect
-    height = height if height is not None else 1
-    win = curses.newwin(height, width, y, x)
-    win.bkgd(" ", curses.color_pair(3))
 
     if len(s) > width:
         s = s[: width - 1] + ELLIPSIS
 
+    attr |= curses.color_pair(3)
+
+    for row in range(height):
+        with suppress(_curses.error):
+            stdscr.addstr(y + row, x, " " * width, curses.color_pair(3))
+
     start_x = width // 2 - len(s) // 2 if centered else 0
     with suppress(_curses.error):
-        win.addstr(0, start_x, s, attr)
+        stdscr.addstr(y, start_x, s, attr)
 
-    win.refresh()
+
+def text_field(
+    ctx: UIContext, id: Id, textfield_str: str, width: int
+) -> tuple[str, Event]:
+    assert ctx.layout is not None
+
+    res: Event = "Continue"
+
+    with ctx.layout.horizontal(
+        columns=1,
+        child_min_width=10,
+        screen_padding=ctx.layout.cols // 2 - width // 2,
+    ) as ok:
+        if ok:
+            lines = split_text_into_lines(text=textfield_str, width=width - 4)
+            rect = ctx.layout.next_rect(height=max(1, len(lines)) + 2)
+
+            _draw_textfield(ctx.stdscr, rect, lines, title=str(ctx.event_type))
+
+            if ctx.uistate.active_id == id and not ctx.uistate.key_consumed:
+                key = ctx.uistate.key
+                if 32 <= key <= 126:
+                    textfield_str += chr(key)
+                elif key == curses.KEY_BACKSPACE and len(textfield_str) > 0:
+                    textfield_str = textfield_str[:-1]
+                elif key == KEY_ESC:
+                    res = "Cancelled"
+                elif key == ord("\n"):
+                    res = "Accepted"
+
+    return textfield_str, res
+
+
+def _draw_textfield(
+    stdscr: curses.window, rect: Rect, lines: list[str], title: str = ""
+) -> None:
+    height, width, y, x = rect
+    stdscr.addstr(
+        y, x, f"{ROUNDED_TOPLEFT}{HORIZONTAL_BAR * (width - 2)}{ROUNDED_TOPRIGHT}"
+    )
+    stdscr.addstr(
+        y + height - 1,
+        x,
+        f"{ROUNDED_BOTTOMLEFT}{HORIZONTAL_BAR * (width - 2)}{ROUNDED_BOTTOMRIGHT}",
+    )
+
+    if title:
+        if len(title) > width:
+            title = title[: width - 1] + ELLIPSIS
+        x_offset = width // 2 - len(title) // 2
+        stdscr.addstr(y, x + x_offset, title)
+    for row in range(1, height - 1):
+        stdscr.addstr(y + row, x, VERTICAL_BAR)
+        stdscr.addstr(y + row, x + width - 1, VERTICAL_BAR)
+
+        for row, line in enumerate(lines):
+            stdscr.addstr(y + row + 1, x + 2, line)
+
+            x_offset = len(lines[-1]) if lines else 0
+            y_offset = len(lines) if lines else 1
+            stdscr.addstr(y + y_offset, x + x_offset + 2, "█")

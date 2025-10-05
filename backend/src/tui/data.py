@@ -1,11 +1,50 @@
 from __future__ import annotations
 
+import curses
 import random
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
-from typing import Self
+from typing import Literal, Self
+
+from src.tui.layout import Layout
+
+type Id = int
+
+
+def widget_id(label: str, instance: int = 0) -> Id:
+    import hashlib
+
+    unique_str = f"{label}:{instance}"
+    return int(hashlib.sha1(unique_str.encode()).hexdigest(), 16)
+
+
+class UiState:
+    def __init__(self) -> None:
+        self.active_id: Id | None = None
+        self.key: int = -1
+        self.key_consumed = False
+
+
+type BoardResult = Literal[
+    "Add Task",
+    "Edit Task",
+    "Add Stage",
+    "Edit Stage",
+    "Saving",
+]
+type TextfieldResult = Literal["Continue", "Cancelled", "Accepted"]
+
+type EventType = BoardResult | TextfieldResult
+type Event = EventType | tuple[BoardResult, dict[str, str]]
+
+
+@dataclass
+class UIContext:
+    stdscr: curses.window
+    uistate: UiState
+    layout: Layout | None = None
+    event_type: BoardResult | None = None
 
 
 def random_tasks() -> list[str]:
