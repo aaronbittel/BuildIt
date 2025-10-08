@@ -5,7 +5,7 @@ import random
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Self
+from typing import Literal, NamedTuple, Self
 
 from src.tui.layout import Layout
 
@@ -19,11 +19,18 @@ def widget_id(label: str, instance: int = 0) -> Id:
     return int(hashlib.sha1(unique_str.encode()).hexdigest(), 16)
 
 
+@dataclass
 class UiState:
-    def __init__(self) -> None:
-        self.active_id: Id | None = None
-        self.key: int = -1
-        self.key_consumed = False
+    active_id: Id | None = None
+    key: int = -1
+    key_consumed: bool = False
+
+    hover_open: bool = False
+    hover_text: str = ""
+    cursor_position: Point | None = None
+
+    textfield_open: bool = False
+    textfield_str: str = ""
 
 
 type BoardResult = Literal[
@@ -42,9 +49,17 @@ type Event = EventType | tuple[BoardResult, dict[str, str]]
 @dataclass
 class UIContext:
     stdscr: curses.window
+    rows: int
+    cols: int
+
     uistate: UiState
     layout: Layout | None = None
     event_type: BoardResult | None = None
+
+
+class Point(NamedTuple):
+    y: int
+    x: int
 
 
 def random_tasks() -> list[str]:
@@ -90,7 +105,8 @@ class Stage:
 
     def pop(self) -> Task:
         task = self.tasks.pop(self.selected)
-        self.selected = max(0, self.selected - 1)
+        if self.selected >= len(self.tasks):
+            self.selected = max(self.selected - 1, 0)
         return task
 
     def next_task(self) -> None:
@@ -102,6 +118,9 @@ class Stage:
             self.selected -= 1
 
     def move_task(self, dir: int) -> None:
+        if len(self.tasks) == 0:
+            return
+
         old_pos = self.selected
         new_pos = old_pos + dir
         if new_pos < 0 or new_pos >= len(self.tasks):
@@ -210,6 +229,9 @@ class Board:
 
     def add_stage(self, stage: Stage) -> None:
         self.stages.append(stage)
+
+    def __len__(self) -> int:
+        return len(self.stages)
 
     def __str__(self) -> str:
         def maxlen(stage: Stage) -> int:

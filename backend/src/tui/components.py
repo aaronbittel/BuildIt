@@ -2,7 +2,7 @@ import _curses
 import curses
 from contextlib import suppress
 
-from src.tui.data import BoardResult, Event, Id, UIContext
+from src.tui.data import Event, Id, UIContext
 from src.tui.layout import Rect
 from src.tui.utils import (
     ELLIPSIS,
@@ -59,28 +59,38 @@ def box(
     lines: list[str],
     selected: int = -1,
     title: str = "",
+    padding: int = 1,
     *,
     highlighted: bool = False,
     rounded: bool = False,
     squash: bool = True,
 ):
     draw_border(
-        stdscr, rect, title=title, border_color=1 if highlighted else 0, rounded=False
+        stdscr=stdscr,
+        rect=rect,
+        title=title,
+        border_color=1 if highlighted else 0,
+        rounded=rounded,
     )
 
     height, width, y, x = rect
     y += 1
-    x += 2
+    x += 1 + padding
 
     if width > 4:
         for row, line in enumerate(lines):
             if squash and len(line) > width - 4:
-                line = line[: width - 4 - 1] + ELLIPSIS
+                line = line[: width - 4 - padding] + ELLIPSIS
             with suppress(_curses.error):
                 stdscr.addstr(y + row, x, line)
             if highlighted:
                 if row == selected:
-                    stdscr.chgat(y + row, x - 1, width - 2, curses.color_pair(2))
+                    stdscr.chgat(
+                        y + row,
+                        x - padding,
+                        width - 2,  # border(2)
+                        curses.color_pair(2),
+                    )
 
 
 def text(
@@ -102,12 +112,11 @@ def text(
         stdscr.addstr(y, start_x, s, attr)
 
 
-def text_field(
-    ctx: UIContext, id: Id, textfield_str: str, width: int
-) -> tuple[str, Event]:
+def text_field(ctx: UIContext, id: Id, width: int) -> tuple[str, Event]:
     assert ctx.layout is not None
 
     res: Event = "Continue"
+    textfield_str = ctx.uistate.textfield_str
 
     with ctx.layout.horizontal(
         columns=1,
