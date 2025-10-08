@@ -1,7 +1,6 @@
 import curses
 from contextlib import contextmanager
 from functools import wraps
-import logging
 from typing import NamedTuple, Self
 
 from src.tui.layout import Rect

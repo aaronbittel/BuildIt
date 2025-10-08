@@ -29,19 +29,17 @@ from src.tui.event import (
 )
 from src.tui.layout import Layout
 from src.tui.storage import DATA_PATH, __load_state_imm, convert_imm_boards_to_boards
+from src.tui.textfield import textfield
 from src.tui.ui import UIContext, UiState, widget_id
 from src.tui.utils import (
     FADE_LENGTH,
     RGB,
-    _color_to_curses,
     clamp_width,
-    color_palette,
     init_fade_out_palette,
 )
 
 # TODO: Manuall switching between vertical and horizontal layout for board
 # TODO: saving and loading board to db + menu
-# TODO: Switch between blocking (normal board) and non-blocking (text input) mode
 
 logging.basicConfig(
     filename="app.log",
@@ -58,6 +56,21 @@ FPS = 30
 
 if not USE_PREFILLED_DATA:
     DATA_PATH.mkdir(exist_ok=True)
+
+
+def display_title(ctx: UIContext, title: str) -> None:
+    assert ctx.layout is not None
+    with ctx.layout.vertical(rows=1, after_spacing=1) as ok:
+        if ok:
+            rect = ctx.layout.next_rect(height=1)
+            text(
+                ctx.stdscr,
+                rect,
+                title,
+                fg_attr=curses.A_BOLD | curses.A_UNDERLINE | curses.color_pair(3),
+                padding_attr=curses.color_pair(3),
+                centered=True,
+            )
 
 
 def main(stdscr: curses.window) -> None:

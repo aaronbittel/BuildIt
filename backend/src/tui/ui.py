@@ -1,7 +1,7 @@
 from __future__ import annotations
-import time
 
 import curses
+import time
 from dataclasses import dataclass
 
 from src.tui.event import BoardEvent
