@@ -1,4 +1,6 @@
 # TODO: Handle if filename already exists, currently silently overwrites
+from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
 from uuid import UUID
@@ -87,7 +89,9 @@ def __load_state_imm(filename: str) -> list[__BoardImm]:
         title_match = title_uuid_pattern.match(lines[0])
         assert title_match is not None
         board = __BoardImm(
-            title=title_match.group("title"), id=title_match.group("uuid"), stages=[]
+            title=title_match.group("title"),
+            id=title_match.group("uuid"),
+            stages=[],
         )
         assert lines[1] == "Stages:"
 
@@ -101,6 +105,7 @@ def __load_state_imm(filename: str) -> list[__BoardImm]:
                 i += 1
                 while i < len(lines) and lines[i].startswith("Name: "):
                     task_match = name_uuid_pattern.match(lines[i])
+                    assert task_match is not None
                     cur_stage.tasks.append(
                         __TaskImm(
                             name=task_match.group("name"), link=task_match.group("uuid")

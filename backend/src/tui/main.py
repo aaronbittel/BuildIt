@@ -3,14 +3,41 @@ from __future__ import annotations
 import curses
 import logging
 
+from src.tui import ui
 from src.tui.app import App
-from src.tui.board import Board, Stage, Task, board_widget
-from src.tui.components import display_title, textfield
-from src.tui.hover import hover
+from src.tui.board import Board, Stage, Task
+from src.tui.components import (
+    board_widget,
+    display_title,
+    hover,
+    status,
+    textfield,
+)
+from src.tui.event import (
+    Accepted,
+    AddStage,
+    AddTask,
+    Cancelled,
+    Continue,
+    EditStage,
+    EditTask,
+    HideHover,
+    Quit,
+    ShowHover,
+    ShowStatusMessage,
+    UpdateBoard,
+)
 from src.tui.layout import Layout
 from src.tui.storage import DATA_PATH, __load_state_imm, convert_imm_boards_to_boards
 from src.tui.ui import UIContext, UiState, widget_id
-from src.tui.utils import clamp_width
+from src.tui.utils import (
+    FADE_LENGTH,
+    RGB,
+    _color_to_curses,
+    clamp_width,
+    color_palette,
+    init_fade_out_palette,
+)
 
 # TODO: Manuall switching between vertical and horizontal layout for board
 # TODO: saving and loading board to db + menu
@@ -36,6 +63,10 @@ if not USE_PREFILLED_DATA:
 def main(stdscr: curses.window) -> None:
     curses.set_escdelay(25)
     curses.start_color()
+    # curses.use_default_colors() ?
+    # TODO: Handle if this is not possible
+    assert curses.can_change_color(), "Terminal cannot redefine colors"
+
     curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)
     curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_GREEN)
     curses.init_pair(3, curses.COLOR_BLACK, curses.COLOR_CYAN)
@@ -69,6 +100,9 @@ def main(stdscr: curses.window) -> None:
 
     rows, cols = stdscr.getmaxyx()
 
+    init_fade_out_palette(
+        start=RGB(220, 220, 220), end=RGB.parse("#1D1F21"), length=FADE_LENGTH
+    )
     uistate = UiState()
     app = App(board)
     ctx = UIContext(stdscr=stdscr, rows=rows, cols=cols, uistate=uistate)
@@ -87,7 +121,7 @@ def main(stdscr: curses.window) -> None:
         events = []
 
         if ctx.uistate.active_id != textfield_id and ctx.uistate.key == ord("q"):
-            events.append("Quit")
+            events.append(Quit())
             ctx.uistate.key_consumed = True
 
         if ctx.uistate.key == curses.KEY_RESIZE:
@@ -100,6 +134,7 @@ def main(stdscr: curses.window) -> None:
 
         with Layout(ctx.rows, ctx.cols) as layout:
             ctx.layout = layout
+
             display_title(ctx, title=app.board.title)
 
             board_event = board_widget(
@@ -118,51 +153,65 @@ def main(stdscr: curses.window) -> None:
                 events.append(res)
 
         if ctx.uistate.hover_open:
-            width = clamp_width(ctx.cols, perc=0.5, min_width=25)
+            width = clamp_width(ctx.cols, perc=0.6, min_width=25)
             hover_event = hover(ctx, width=width)
             if hover_event:
                 events.append(hover_event)
 
+        if (
+            ctx.uistate.status_message
+            and (pair_number := ctx.uistate.status_message_color()) is not None
+        ):
+            status(
+                ctx,
+                msg=ctx.uistate.status_message,
+                pair_number=pair_number,
+            )
+
         for event in events:
+            if event:
+                logging.info(f"{event=}")
             match event:
-                case "Add Task":
+                case AddTask() as add_task_event:
                     app.open_textfield(
-                        ctx, event_type="Add Task", textfield_id=textfield_id
+                        ctx, event_type=add_task_event, textfield_id=textfield_id
                     )
-                case ("Edit Task", {"prefill": text}):
-                    app.open_textfield(
-                        ctx,
-                        event_type="Edit Task",
-                        textfield_id=textfield_id,
-                        initial_text=text,
-                    )
-                case "Add Stage":
-                    app.open_textfield(
-                        ctx, event_type="Add Stage", textfield_id=textfield_id
-                    )
-                case ("Edit Stage", {"prefill": text}):
+                case EditTask(prefill=text_to_edit) as edit_task_event:
                     app.open_textfield(
                         ctx,
-                        event_type="Edit Stage",
+                        event_type=edit_task_event,
                         textfield_id=textfield_id,
-                        initial_text=text,
+                        initial_text=text_to_edit,
                     )
-                case "Continue":
+                case AddStage() as add_stage_event:
+                    app.open_textfield(
+                        ctx, event_type=add_stage_event, textfield_id=textfield_id
+                    )
+                case EditStage(prefill=text_to_edit) as edit_stage_event:
+                    app.open_textfield(
+                        ctx,
+                        event_type=edit_stage_event,
+                        textfield_id=textfield_id,
+                        initial_text=text_to_edit,
+                    )
+                case Continue():
                     pass
-                case "Accepted":
+                case Accepted():
                     app.handle_accept_textfield(ctx)
-                case "Cancelled":
+                case Cancelled():
                     app.handle_cancel_textfield(ctx)
-                case ("Update Board", {"new_board": new_board}):
+                case UpdateBoard(new_board=new_board):
                     app.board = new_board
-                case ("Show Hover", {"position": point, "text": text}):
-                    ctx.uistate.cursor_position = point
+                case ShowHover(position=cursor_pos, text=text_to_show):
+                    ctx.uistate.cursor_pos = cursor_pos
                     ctx.uistate.hover_open = True
-                    ctx.uistate.hover_text = text
-                case "Hide Hover":
-                    ctx.uistate.cursor_position = None
+                    ctx.uistate.hover_text = text_to_show
+                case HideHover():
+                    ctx.uistate.cursor_pos = None
                     ctx.uistate.hover_open = False
-                case "Quit":
+                case ShowStatusMessage(text=msg):
+                    ctx.uistate.init_status_message(msg=msg, duration=4.0)
+                case Quit():
                     app.running = False
                 case e:
                     logging.error("Unmatched event: %s", e)
