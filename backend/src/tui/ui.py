@@ -46,17 +46,19 @@ class UiState:
 
     def status_message_color(self) -> int:
         assert self.start_time_ns is not None
+        assert self.duration is not None
+
         dur = (time.monotonic_ns() - self.start_time_ns) / 10**9
         if dur < self.duration:
             return COLOR_BASE_INDEX
 
+        # TODO: Not to sure about this
         self.status_message_pair_number += 1
         if self.status_message_pair_number >= COLOR_BASE_INDEX + FADE_LENGTH:
             self.status_message = None
             self.status_message_pair_number = COLOR_BASE_INDEX
             self.duration = None
             self.start_time_ns = None
-            return
 
         return self.status_message_pair_number
 

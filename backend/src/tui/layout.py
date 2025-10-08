@@ -2,7 +2,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from fractions import Fraction
 from types import TracebackType
-from typing import Generator, NamedTuple, Self
+from typing import Generator, Literal, NamedTuple, Self
 
 
 class Rect(NamedTuple):
@@ -66,8 +66,9 @@ class Layout:
         exc_type: type[BaseException] | None,
         exc: BaseException | None,
         tb: TracebackType | None,
-    ) -> bool:
+    ) -> Literal[False]:
         self._end()
+        return False
 
     def _begin_horizontal(
         self,
@@ -75,19 +76,22 @@ class Layout:
         spacing: int = 0,
         columns: int = 1,
         # FIXME: handle child_min_width = None
-        child_min_width: int | None = None,
-        child_min_height: int | None = None,
+        child_min_width: int = 1,
+        child_min_height: int = 1,
         **kwargs,
     ) -> bool:
+        assert screen_padding >= 0, "screen_padding must not be negative"
+        assert spacing >= 0, "spacing must not be negative"
+
         total_width = self.cols - (screen_padding * 2 + (columns - 1) * spacing)
         frac_width_per_child = Fraction(total_width, columns)
 
-        if child_min_width is not None and frac_width_per_child < child_min_width:
+        if frac_width_per_child < child_min_width:
             return False
 
         self._state_stack.append(
             LayoutState(
-                next_cursor_x=screen_padding,
+                next_cursor_x=Fraction(screen_padding),
                 next_cursor_y=self.y,
                 spacing=spacing,
                 screen_padding=screen_padding,
@@ -95,9 +99,7 @@ class Layout:
                 frac_width_per_child=frac_width_per_child,
                 columns=columns,
                 freq_child_min_width=Fraction(child_min_width),
-                freq_child_min_height=Fraction(child_min_height)
-                if child_min_height
-                else None,
+                freq_child_min_height=Fraction(child_min_height),
             )
         )
         return True
@@ -116,10 +118,10 @@ class Layout:
         screen_padding: int = 0,
         spacing: int = 0,
         rows: int = 1,
-        child_min_width: int | None = None,
-        child_min_height: int | None = None,
+        child_min_width: int = 1,
+        child_min_height: int = 1,
         **kwargs,
-    ) -> None:
+    ) -> bool:
         available_width_per_child = self.cols - 2 * screen_padding
 
         if available_width_per_child < child_min_width:
@@ -128,13 +130,13 @@ class Layout:
         self._state_stack.append(
             LayoutState(
                 next_cursor_y=self.y,
-                next_cursor_x=screen_padding,
+                next_cursor_x=Fraction(screen_padding),
                 screen_padding=screen_padding,
                 spacing=spacing,
                 rows=rows,
-                freq_child_min_width=child_min_width,
-                freq_child_min_height=child_min_height,
-                frac_width_per_child=available_width_per_child,
+                freq_child_min_width=Fraction(child_min_width),
+                freq_child_min_height=Fraction(child_min_height),
+                frac_width_per_child=Fraction(available_width_per_child),
                 use_vertical_layout=True,
             )
         )
@@ -191,7 +193,7 @@ class Layout:
     def _end(self) -> None: ...
 
     @contextmanager
-    def horizontal(self, columns: int, **kwargs) -> Generator[Self, None, None]:
+    def horizontal(self, columns: int, **kwargs) -> Generator[bool, None, None]:
         if self._begin_horizontal(columns=columns, **kwargs):
             try:
                 yield True
@@ -201,7 +203,7 @@ class Layout:
             yield False
 
     @contextmanager
-    def vertical(self, rows: int, **kwargs) -> Generator[Self, None, None]:
+    def vertical(self, rows: int, **kwargs) -> Generator[bool, None, None]:
         if self._begin_vertical(rows=rows, **kwargs):
             try:
                 yield True

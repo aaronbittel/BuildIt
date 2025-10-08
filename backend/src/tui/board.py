@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
-from typing import Self
+from typing import Iterator, Self
 from uuid import UUID, uuid1
 
 
@@ -163,6 +163,9 @@ class Stage:
         text = self.tasks.pop(old_pos)
         self.tasks.insert(new_pos, text)
         self.selected = new_pos
+
+    def __iter__(self) -> Iterator[Task]:
+        return iter(self.tasks)
 
     def __getitem__(self, idx: int) -> Task:
         if idx >= len(self.tasks):

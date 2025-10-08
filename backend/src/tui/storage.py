@@ -90,7 +90,7 @@ def __load_state_imm(filename: str) -> list[__BoardImm]:
         assert title_match is not None
         board = __BoardImm(
             title=title_match.group("title"),
-            id=title_match.group("uuid"),
+            id=UUID(title_match.group("uuid")),
             stages=[],
         )
         assert lines[1] == "Stages:"
@@ -108,7 +108,8 @@ def __load_state_imm(filename: str) -> list[__BoardImm]:
                     assert task_match is not None
                     cur_stage.tasks.append(
                         __TaskImm(
-                            name=task_match.group("name"), link=task_match.group("uuid")
+                            name=task_match.group("name"),
+                            link=UUID(task_match.group("uuid")),
                         )
                     )
                     i += 1

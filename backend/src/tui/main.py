@@ -118,7 +118,7 @@ def main(stdscr: curses.window) -> None:
     while app.running:
         ctx.uistate.key = stdscr.getch()
         ctx.uistate.key_consumed = False
-        events = []
+        events: list[Event] = []
 
         if ctx.uistate.active_id != textfield_id and ctx.uistate.key == ord("q"):
             events.append(Quit())
