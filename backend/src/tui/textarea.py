@@ -1,12 +1,6 @@
 import curses
-from typing import NamedTuple
 
-
-class Rect(NamedTuple):
-    height: int
-    width: int
-    y: int
-    x: int
+from src.tui.layout import Rect
 
 
 def text_field(stdscr: curses.window, rect: Rect, text: str, key: int) -> str:

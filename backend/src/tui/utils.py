@@ -25,6 +25,10 @@ def clear_rect(win: curses.window, rect: Rect, attr: int = 0):
         win.addstr(rect.y + i, rect.x, blank, attr)
 
 
+def clamp_width(cols: int, perc: float, min_width: int) -> int:
+    return min(cols, max(int(perc * cols), min_width))
+
+
 @contextmanager
 def show_cursor():
     try:

@@ -3,23 +3,14 @@ from __future__ import annotations
 import curses
 import logging
 
-from src.tui.board import board_widget
-from src.tui.components import text, text_field
-from src.tui.data import (
-    DATA_PATH,
-    Board,
-    EventType,
-    Id,
-    Stage,
-    Task,
-    UIContext,
-    UiState,
-    __load_state_imm,
-    convert_imm_boards_to_boards,
-    widget_id,
-)
+from src.tui.app import App
+from src.tui.board import Board, Stage, Task, board_widget
+from src.tui.components import display_title, textfield
 from src.tui.hover import hover
 from src.tui.layout import Layout
+from src.tui.storage import DATA_PATH, __load_state_imm, convert_imm_boards_to_boards
+from src.tui.ui import UIContext, UiState, widget_id
+from src.tui.utils import clamp_width
 
 # TODO: Manuall switching between vertical and horizontal layout for board
 # TODO: saving and loading board to db + menu
@@ -38,72 +29,8 @@ USE_PREFILLED_DATA = True
 FPS = 30
 
 
-class App:
-    def __init__(self, board: Board) -> None:
-        self.board = board
-
-        self.running = True
-        self.filename = ""
-        self.choose_file = not USE_PREFILLED_DATA
-
-    def open_textfield(
-        self,
-        ctx: UIContext,
-        event_type: EventType,
-        textfield_id: Id,
-        initial_text: str = "",
-    ) -> None:
-        ctx.uistate.textfield_open = True
-        ctx.uistate.textfield_str = initial_text
-        ctx.event_type = event_type
-        ctx.uistate.active_id = textfield_id
-
-    def handle_accept_textfield(self, ctx: UIContext) -> None:
-        assert ctx.event_type is not None
-
-        if ctx.event_type == "Add Task":
-            self.board.stage.add(Task(name=ctx.uistate.textfield_str))
-        elif ctx.event_type == "Edit Task":
-            self.board.stage.task.name = ctx.uistate.textfield_str
-        elif ctx.event_type == "Add Stage":
-            self.board.add_stage(Stage(title=ctx.uistate.textfield_str))
-            self.board.selected = len(self.board.stages) - 1
-        elif ctx.event_type == "Edit Stage":
-            self.board.stage.title = ctx.uistate.textfield_str
-        elif ctx.event_type == "Saving":
-            pass
-        else:
-            logging.error("unexpected event: %s", ctx.event_type)
-            assert False, "unreachable"
-
-        ctx.event_type = None
-        ctx.uistate.textfield_str = ""
-        ctx.uistate.textfield_open = False
-        ctx.uistate.active_id = None
-
-    def handle_cancel_textfield(self, ctx: UIContext) -> None:
-        ctx.uistate.textfield_str = ""
-        ctx.uistate.textfield_open = False
-        ctx.event_type = None
-        ctx.uistate.active_id = None
-
-
-def display_title(stdscr: curses.window, layout: Layout, title: str) -> None:
-    rect = layout.next_rect(height=1)
-    text(
-        stdscr,
-        rect,
-        title,
-        attr=curses.A_BOLD | curses.A_UNDERLINE,
-    )
-
-
 if not USE_PREFILLED_DATA:
     DATA_PATH.mkdir(exist_ok=True)
-
-
-def clamp_width(cols: int, perc: float, min_width: int) -> int:
-    return min(cols, max(int(perc * cols), min_width))
 
 
 def main(stdscr: curses.window) -> None:
@@ -149,10 +76,6 @@ def main(stdscr: curses.window) -> None:
     stdscr.refresh()
     stdscr.timeout(int(1 / FPS * 1000))
 
-    stage_min_width = 25
-
-    edit_width = clamp_width(cols=cols, perc=0.75, min_width=25)
-
     board_id = widget_id("board")
     textfield_id = widget_id("textfield")
 
@@ -164,45 +87,39 @@ def main(stdscr: curses.window) -> None:
         events = []
 
         if ctx.uistate.active_id != textfield_id and ctx.uistate.key == ord("q"):
-            app.running = False
+            events.append("Quit")
+            ctx.uistate.key_consumed = True
+
+        if ctx.uistate.key == curses.KEY_RESIZE:
+            ctx.rows, ctx.cols = stdscr.getmaxyx()
+            logging.info(f"rows={ctx.rows} cols={ctx.cols}")
             ctx.uistate.key_consumed = True
             continue
 
-        if ctx.uistate.key == curses.KEY_RESIZE:
-            logging.info(f"{rows=} {cols=}")
-            ctx.rows, ctx.cols = stdscr.getmaxyx()
-            edit_width = calc_edit_width(cols)
-            ctx.uistate.key_consumed = True
-
         stdscr.erase()
 
-        with Layout(stdscr, rows, cols) as layout:
+        with Layout(ctx.rows, ctx.cols) as layout:
             ctx.layout = layout
-            with layout.vertical(rows=1, after_spacing=1, child_min_width=5) as ok:
-                if ok:
-                    display_title(ctx.stdscr, layout=layout, title=app.board.title)
+            display_title(ctx, title=app.board.title)
 
-            board_id = widget_id("board")
             board_event = board_widget(
-                ctx,
-                board=app.board,
-                id=board_id,
-                stage_min_width=stage_min_width,
+                ctx, board=app.board, id=board_id, stage_min_width=25
             )
             if board_event is not None:
                 events.append(board_event)
 
             if ctx.uistate.textfield_open:
-                textfield_id = widget_id("textfield")
-                ctx.uistate.textfield_str, res = text_field(
+                width = clamp_width(ctx.cols, perc=0.75, min_width=25)
+                ctx.uistate.textfield_str, res = textfield(
                     ctx,
                     id=textfield_id,
-                    width=edit_width,
+                    width=width,
                 )
                 events.append(res)
 
         if ctx.uistate.hover_open:
-            hover_event = hover(ctx, width=edit_width)
+            width = clamp_width(ctx.cols, perc=0.5, min_width=25)
+            hover_event = hover(ctx, width=width)
             if hover_event:
                 events.append(hover_event)
 
@@ -245,6 +162,8 @@ def main(stdscr: curses.window) -> None:
                 case "Hide Hover":
                     ctx.uistate.cursor_position = None
                     ctx.uistate.hover_open = False
+                case "Quit":
+                    app.running = False
                 case e:
                     logging.error("Unmatched event: %s", e)
                     assert False, "unreachable"

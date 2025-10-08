@@ -33,4 +33,4 @@ testpaths = [
 packages = ["src"]
 
 [tool.ruff.lint.per-file-ignores]
-"src/tui/data.py" = ["E731"]
+"src/tui/board.py" = ["E731"]

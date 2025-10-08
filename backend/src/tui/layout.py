@@ -1,4 +1,3 @@
-import curses
 from contextlib import contextmanager
 from dataclasses import dataclass
 from fractions import Fraction
@@ -9,6 +8,11 @@ from typing import Generator, NamedTuple, Self
 class Rect(NamedTuple):
     height: int
     width: int
+    y: int
+    x: int
+
+
+class Point(NamedTuple):
     y: int
     x: int
 
@@ -41,14 +45,12 @@ class LayoutState:
 class Layout:
     def __init__(
         self,
-        win: curses.window,
         rows: int,
         cols: int,
         # TODO: maybe remove these
         y: int = 0,
         x: int = 0,
     ) -> None:
-        self.win = win
         self.rows = rows
         self.cols = cols
         self.y = y
@@ -146,6 +148,7 @@ class Layout:
         self.x = 0
 
     def next_rect(self, height: int) -> Rect:
+        assert len(self._state_stack) > 0
         layout_state = self._state_stack[-1]
 
         last = False

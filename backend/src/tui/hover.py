@@ -1,6 +1,6 @@
 from src.tui.components import box
-from src.tui.data import Event, UIContext
 from src.tui.layout import Rect
+from src.tui.ui import Event, UIContext
 from src.tui.utils import clear_rect, split_text_into_lines
 
 

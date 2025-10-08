@@ -1,9 +1,10 @@
 import _curses
 import curses
+import logging
 from contextlib import suppress
 
-from src.tui.data import Event, Id, UIContext
 from src.tui.layout import Rect
+from src.tui.ui import Event, Id, UIContext
 from src.tui.utils import (
     ELLIPSIS,
     HORIZONTAL_BAR,
@@ -15,6 +16,21 @@ from src.tui.utils import (
     VERTICAL_BAR,
     split_text_into_lines,
 )
+
+
+def display_title(ctx: UIContext, title: str) -> None:
+    assert ctx.layout is not None
+    with ctx.layout.vertical(rows=1, after_spacing=1, child_min_width=5) as ok:
+        if ok:
+            rect = ctx.layout.next_rect(height=1)
+            text(
+                ctx.stdscr,
+                rect,
+                title,
+                fg_attr=curses.A_BOLD | curses.A_UNDERLINE | curses.color_pair(3),
+                padding_attr=curses.color_pair(3),
+                centered=True,
+            )
 
 
 def draw_border(
@@ -35,7 +51,10 @@ def draw_border(
 
     stdscr.addch(y, x, upper_left_corner, color)
     stdscr.addstr(y, x + 1, "─" * (width - 2), color)
-    stdscr.addch(y, x + width - 1, upper_right_corner, color)
+    try:
+        stdscr.addch(y, x + width - 1, upper_right_corner, color)
+    except _curses.error:
+        logging.error(f"{y=} {x+width-1=} {upper_right_corner=}")
 
     if title:
         if len(title) > width:
@@ -73,7 +92,7 @@ def box(
         rounded=rounded,
     )
 
-    height, width, y, x = rect
+    _, width, y, x = rect
     y += 1
     x += 1 + padding
 
@@ -94,25 +113,28 @@ def box(
 
 
 def text(
-    stdscr: curses.window, rect: Rect, s: str, attr: int = 0, centered: bool = True
+    stdscr: curses.window,
+    rect: Rect,
+    s: str,
+    fg_attr: int = 0,
+    padding_attr: int = 0,
+    *,
+    centered: bool,
 ) -> None:
     height, width, y, x = rect
 
     if len(s) > width:
         s = s[: width - 1] + ELLIPSIS
 
-    attr |= curses.color_pair(3)
-
     for row in range(height):
-        with suppress(_curses.error):
-            stdscr.addstr(y + row, x, " " * width, curses.color_pair(3))
+        stdscr.chgat(y + row, x, width, padding_attr)
 
-    start_x = width // 2 - len(s) // 2 if centered else 0
+    x_offset = width // 2 - len(s) // 2 if centered else 0
     with suppress(_curses.error):
-        stdscr.addstr(y, start_x, s, attr)
+        stdscr.addstr(y, x + x_offset, s, fg_attr)
 
 
-def text_field(ctx: UIContext, id: Id, width: int) -> tuple[str, Event]:
+def textfield(ctx: UIContext, id: Id, width: int) -> tuple[str, Event]:
     assert ctx.layout is not None
 
     res: Event = "Continue"
