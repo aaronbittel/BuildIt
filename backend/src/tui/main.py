@@ -3,24 +3,22 @@ from __future__ import annotations
 import curses
 import logging
 
-from src.tui import ui
 from src.tui.app import App
 from src.tui.board import Board, Stage, Task
+from src.tui.board_ui import board_widget
 from src.tui.components import (
-    board_widget,
-    display_title,
     hover,
     status,
-    textfield,
+    text,
 )
 from src.tui.event import (
     Accepted,
     AddStage,
     AddTask,
     Cancelled,
-    Continue,
     EditStage,
     EditTask,
+    Event,
     HideHover,
     Quit,
     ShowHover,
@@ -158,12 +156,13 @@ def main(stdscr: curses.window) -> None:
 
             if ctx.uistate.textfield_open:
                 width = clamp_width(ctx.cols, perc=0.75, min_width=25)
-                ctx.uistate.textfield_str, res = textfield(
+                ctx.uistate.textfield_str, textfield_event = textfield(
                     ctx,
                     id=textfield_id,
                     width=width,
                 )
-                events.append(res)
+                if textfield_event:
+                    events.append(textfield_event)
 
         if ctx.uistate.hover_open:
             width = clamp_width(ctx.cols, perc=0.6, min_width=25)
@@ -182,8 +181,7 @@ def main(stdscr: curses.window) -> None:
             )
 
         for event in events:
-            if event:
-                logging.info(f"{event=}")
+            logging.info("%s", event)
             match event:
                 case AddTask() as add_task_event:
                     app.open_textfield(
@@ -207,8 +205,6 @@ def main(stdscr: curses.window) -> None:
                         textfield_id=textfield_id,
                         initial_text=text_to_edit,
                     )
-                case Continue():
-                    pass
                 case Accepted():
                     app.handle_accept_textfield(ctx)
                 case Cancelled():
