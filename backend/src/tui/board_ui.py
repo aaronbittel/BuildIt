@@ -130,8 +130,14 @@ def board_widget(
         elif key == KEY_ESC:
             board = board.goto_prev_board()
             event = UpdateBoard(new_board=board)
-        elif key == ord("z"):
-            event = ShowStatusMessage(text="This is a status message" * 5)
+        elif key == ord("1"):
+            event = ShowStatusMessage(
+                text="This is a status message " * 5, duration=4.0
+            )
+        elif key == ord("2"):
+            event = ShowStatusMessage(
+                text="This is a short status message", duration=2.0
+            )
     return event
 
 

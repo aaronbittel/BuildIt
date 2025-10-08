@@ -171,12 +171,12 @@ def main(stdscr: curses.window) -> None:
                 events.append(hover_event)
 
         if (
-            ctx.uistate.status_message
+            ctx.uistate.status_message is not None
             and (pair_number := ctx.uistate.status_message_color()) is not None
         ):
             status(
                 ctx,
-                msg=ctx.uistate.status_message,
+                msg=ctx.uistate.status_message.msg,
                 pair_number=pair_number,
             )
 
@@ -218,8 +218,8 @@ def main(stdscr: curses.window) -> None:
                 case HideHover():
                     ctx.uistate.cursor_pos = None
                     ctx.uistate.hover_open = False
-                case ShowStatusMessage(text=msg):
-                    ctx.uistate.init_status_message(msg=msg, duration=4.0)
+                case ShowStatusMessage(text=msg, duration=duration):
+                    ctx.uistate.init_status_message(msg=msg, duration=duration)
                 case Quit():
                     app.running = False
                 case e:

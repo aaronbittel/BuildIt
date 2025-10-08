@@ -20,6 +20,26 @@ class UIContext:
     event_type: BoardEvent | None = None
 
 
+class StatusMessage:
+    def __init__(self, msg: str, color_pair_number: int, duration: float) -> None:
+        self.msg = msg
+        self.cur_color_pair = color_pair_number
+        self.duration = duration
+        self.start_time_ns = time.monotonic_ns()
+
+    def next_color(self) -> int | None:
+        dur = (time.monotonic_ns() - self.start_time_ns) / 10**9
+        if dur < self.duration:
+            return COLOR_BASE_INDEX
+
+        # TODO: Not to sure about this
+        self.cur_color_pair += 1
+        if self.cur_color_pair >= COLOR_BASE_INDEX + FADE_LENGTH:
+            return None
+
+        return self.cur_color_pair
+
+
 @dataclass
 class UiState:
     active_id: Id | None = None
@@ -33,34 +53,19 @@ class UiState:
     textfield_open: bool = False
     textfield_str: str = ""
 
-    status_message: str | None = None
-    status_message_pair_number: int = COLOR_BASE_INDEX
-    duration: float | None = None
-    start_time_ns: int | None = None
+    status_message: StatusMessage | None = None
 
     def init_status_message(self, msg: str, duration: float) -> None:
-        self.status_message = msg
-        self.status_message_pair_number = COLOR_BASE_INDEX
-        self.duration = duration
-        self.start_time_ns = time.monotonic_ns()
+        self.status_message = StatusMessage(
+            msg=msg, color_pair_number=COLOR_BASE_INDEX, duration=duration
+        )
 
-    def status_message_color(self) -> int:
-        assert self.start_time_ns is not None
-        assert self.duration is not None
-
-        dur = (time.monotonic_ns() - self.start_time_ns) / 10**9
-        if dur < self.duration:
-            return COLOR_BASE_INDEX
-
-        # TODO: Not to sure about this
-        self.status_message_pair_number += 1
-        if self.status_message_pair_number >= COLOR_BASE_INDEX + FADE_LENGTH:
+    def status_message_color(self) -> int | None:
+        assert self.status_message is not None
+        color = self.status_message.next_color()
+        if color is None:
             self.status_message = None
-            self.status_message_pair_number = COLOR_BASE_INDEX
-            self.duration = None
-            self.start_time_ns = None
-
-        return self.status_message_pair_number
+        return color
 
 
 type Id = int

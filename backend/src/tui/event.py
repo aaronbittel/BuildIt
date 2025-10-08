@@ -88,6 +88,7 @@ class Quit(Event):
 @dataclass(frozen=True)
 class ShowStatusMessage(Event):
     text: str
+    duration: float
 
     def __str__(self) -> str:
         return "ShowStatusMessage"
