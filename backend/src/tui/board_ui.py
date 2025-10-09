@@ -14,7 +14,7 @@ from src.tui.event import (
     SwitchBoard,
 )
 from src.tui.layout import Layout, Point, Rect
-from src.tui.ui import Id, UIContext
+from src.tui.ui import Id, StatusMessage, UIContext
 from src.tui.utils import (
     KEY_ESC,
 )
@@ -97,6 +97,16 @@ def board_widget(
                     text=board.stage.task.name,
                 )
                 # fmt: on
+        elif key == ord("y"):
+            if len(board.stage.tasks) > 0:
+                import subprocess
+
+                subprocess.run(
+                    ["xclip", "-selection", "clipboard"],
+                    text=True,
+                    input=board.stage.task.name,
+                )
+                event = ShowStatusMessage(text="Copied text to clipboard", duration=2.0)
         elif key == ord("J"):
             if len(board) > 0:
                 board.stage.move_task(1)
