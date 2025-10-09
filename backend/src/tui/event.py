@@ -21,6 +21,10 @@ class AddTask(Event):
     def __str__(self) -> str:
         return "AddTask"
 
+    @property
+    def title(self) -> str:
+        return "Add Task"
+
 
 @dataclass(frozen=True)
 class EditTask(Event):
@@ -29,11 +33,19 @@ class EditTask(Event):
     def __str__(self) -> str:
         return "EditTask"
 
+    @property
+    def title(self) -> str:
+        return "Edit Task"
+
 
 @dataclass(frozen=True)
 class AddStage(Event):
     def __str__(self) -> str:
         return "AddStage"
+
+    @property
+    def title(self) -> str:
+        return "Add Stage"
 
 
 @dataclass(frozen=True)
@@ -42,6 +54,10 @@ class EditStage(Event):
 
     def __str__(self) -> str:
         return "EditStage"
+
+    @property
+    def title(self) -> str:
+        return "Edit Stage"
 
 
 @dataclass(frozen=True)
@@ -57,11 +73,19 @@ class Cancelled(Event):
 
 
 @dataclass(frozen=True)
-class UpdateBoard(Event):
+class CreateNewBoard(Event):
     new_board: Board
 
     def __str__(self) -> str:
-        return "UpdateBoard"
+        return "CreateNewBoard"
+
+
+@dataclass(frozen=True)
+class SwitchBoard(Event):
+    board: Board
+
+    def __str__(self) -> str:
+        return "SwitchBoard"
 
 
 @dataclass(frozen=True)

@@ -20,8 +20,13 @@ from src.tui.utils import (
 )
 
 
-def textfield(ctx: UIContext, id: Id, width: int) -> tuple[str, TextfieldEvent | None]:
+def textfield(
+    ctx: UIContext, id: Id, width: int, title: str = ""
+) -> tuple[str, TextfieldEvent | None]:
     assert ctx.layout is not None
+
+    if ctx.uistate.active_id is None:
+        ctx.uistate.active_id = id
 
     event: TextfieldEvent | None = None
     textfield_str = ctx.uistate.textfield_str
@@ -35,7 +40,7 @@ def textfield(ctx: UIContext, id: Id, width: int) -> tuple[str, TextfieldEvent |
             lines = split_text_into_lines(text=textfield_str, width=width - 4)
             rect = ctx.layout.next_rect(height=max(1, len(lines)) + 2)
 
-            _draw_textfield(ctx.stdscr, rect, lines, title=str(ctx.event_type))
+            _draw_textfield(ctx.stdscr, rect, lines, title=title)
 
             if ctx.uistate.active_id == id and not ctx.uistate.key_consumed:
                 key = ctx.uistate.key

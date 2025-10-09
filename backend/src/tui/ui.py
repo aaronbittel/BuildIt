@@ -17,7 +17,7 @@ class UIContext:
 
     uistate: UiState
     layout: Layout | None = None
-    event_type: BoardEvent | None = None
+    board_event: BoardEvent | None = None
 
 
 class StatusMessage:

@@ -5,12 +5,13 @@ from src.tui.components import box
 from src.tui.event import (
     AddStage,
     AddTask,
+    CreateNewBoard,
     EditStage,
     EditTask,
     Event,
     ShowHover,
     ShowStatusMessage,
-    UpdateBoard,
+    SwitchBoard,
 )
 from src.tui.layout import Layout, Point, Rect
 from src.tui.ui import Id, UIContext
@@ -126,14 +127,12 @@ def board_widget(
                     task_idx=board.stage.selected,
                     prefilled=False,
                 )
-                event = UpdateBoard(new_board=board)
+                event = CreateNewBoard(new_board=board)
         elif key == KEY_ESC:
             board = board.goto_prev_board()
-            event = UpdateBoard(new_board=board)
+            event = SwitchBoard(board=board)
         elif key == ord("1"):
-            event = ShowStatusMessage(
-                text="This is a status message " * 5, duration=4.0
-            )
+            event = ShowStatusMessage(text=str(board.id), duration=4.0)
         elif key == ord("2"):
             event = ShowStatusMessage(
                 text="This is a short status message", duration=2.0

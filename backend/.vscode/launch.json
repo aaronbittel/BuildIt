@@ -15,6 +15,19 @@
                 "PYTHONPATH": "${workspaceFolder}/src"
             },
             "cwd": "${workspaceFolder}"
-        }
+        },
+        {
+            "name": "Run TUI DB",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/tui/main.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src",
+                "BUILDIT_STORAGE": "db",
+            },
+            "cwd": "${workspaceFolder}"
+        },
     ]
 }

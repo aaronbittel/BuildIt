@@ -1,42 +1,56 @@
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass
-from typing import Iterator, Self
-from uuid import UUID, uuid1
+from contextlib import suppress
+from dataclasses import dataclass, field
+from typing import ClassVar, Iterator, Self
+from uuid import UUID, uuid4
 
 
+@dataclass
 class Board:
-    DefaultStages = ["Backlog", "In Progress", "Done"]
+    DefaultStages: ClassVar = ["Backlog", "In Progress", "Done"]
 
-    def __init__(
-        self,
-        title: str,
-        stages: list[Stage] | None = None,
-        prev_board: Board | None = None,
-        id: UUID | None = None,
-    ) -> None:
-        self.id = id if id is not None else uuid1()
-        self.title = title
-        self.stages = stages if stages is not None else []
-        self.prev_board = prev_board
+    title: str
+    id: UUID = field(default_factory=uuid4)
+    stages: list[Stage] = field(default_factory=list)
+    prev_board: Board | None = field(compare=False, default=None)
+    selected: int = 0
 
-        self.selected = 0
+    def __post_init__(self) -> None:
+        self.__fix_board_linking()
+
+    def __fix_board_linking(self) -> None:
+        for stage in self.stages:
+            for task in stage.tasks:
+                if task.next_board is not None:
+                    task.next_board.prev_board = self
+                    task.next_board.__fix_board_linking()
 
     @classmethod
     def default(
         cls,
         title: str,
-        prev_board: Board | None = None,
+        next_board: Board | None = None,
         *,
         # FIXME: Remove me later
         prefilled: bool = False,
     ) -> Self:
-        get_tasks = lambda: [Task(name) for name in random_tasks()] if prefilled else []
+        def get_tasks(i: int) -> list[Task]:
+            tasks: list[Task] = []
+            for j, name in enumerate(random_tasks()):
+                if i == 0 and j == 0:
+                    tasks.append(Task(name=name, next_board=next_board))
+                else:
+                    tasks.append(Task(name=name))
+            return tasks
+
         return cls(
             title,
-            stages=[Stage(t, tasks=get_tasks()) for t in Board.DefaultStages],
-            prev_board=prev_board,
+            stages=[
+                Stage(title, tasks=get_tasks(i) if prefilled else [])
+                for i, title in enumerate(Board.DefaultStages)
+            ],
         )
 
     def goto_next_board(
@@ -51,7 +65,8 @@ class Board:
         if task.next_board is not None:
             return task.next_board
 
-        board = Board.default(title=task.name, prev_board=self, prefilled=prefilled)
+        board = Board.default(title=task.name, prefilled=prefilled)
+        board.prev_board = self
         task.next_board = board
         return board
 
@@ -83,36 +98,24 @@ class Board:
     def add_stage(self, stage: Stage) -> None:
         self.stages.append(stage)
 
+    def root_board(self) -> Board:
+        while self.prev_board is not None:
+            self = self.goto_prev_board()
+        return self
+
+    def find_board(self, id: UUID) -> Board:
+        if self.id == id:
+            return self
+        for stage in self.stages:
+            for task in stage.tasks:
+                if task.next_board is not None:
+                    # FIXME: improve this
+                    with suppress(ValueError):
+                        return task.next_board.find_board(id)
+        raise ValueError(f"no board with {id=} found")
+
     def __len__(self) -> int:
         return len(self.stages)
-
-    def __str__(self) -> str:
-        def maxlen(stage: Stage) -> int:
-            return max(len(stage.title), max(map(len, stage.tasks), default=0))
-
-        def content(stage: Stage, idx: int) -> str:
-            return stage.tasks[idx].name if len(stage.tasks) > idx else ""
-
-        maxlens = [maxlen(stage) for stage in self.stages]
-        total_len = sum(maxlens) + len(self.stages) - 1
-        title = f"~{self.title}~"
-
-        out = f"{title.center(total_len)}\n"
-
-        out += " ".join(
-            [stage.title.center(maxlens[i]) for i, stage in enumerate(self.stages)]
-        )
-        out += "\n"
-
-        m = max(len(stage.tasks) for stage in self.stages)
-        for i in range(m):
-            out += " ".join(
-                content(stage, i).ljust(maxlens[j])
-                for j, stage in enumerate(self.stages)
-            )
-            out += "\n"
-
-        return out
 
     @property
     def stage(self) -> Stage:
@@ -122,17 +125,19 @@ class Board:
 @dataclass
 class Task:
     name: str
+    id: UUID = field(default_factory=uuid4)
     next_board: Board | None = None
 
     def __len__(self) -> int:
         return len(self.name)
 
 
+@dataclass
 class Stage:
-    def __init__(self, title: str, tasks: list[Task] | None = None) -> None:
-        self.title = title
-        self.tasks = tasks if tasks is not None else []
-        self.selected = 0
+    title: str
+    id: UUID = field(default_factory=uuid4)
+    tasks: list[Task] = field(default_factory=list)
+    selected: int = 0
 
     def add(self, task: Task) -> None:
         self.tasks.append(task)
@@ -175,16 +180,6 @@ class Stage:
     def __len__(self) -> int:
         return len(self.tasks)
 
-    def __repr__(self) -> str:
-        task_repr = "[]"
-        if self.tasks:
-            task_repr = "["
-            for task in self.tasks:
-                task_repr += f"\n\tTask(name={task.name}),"
-            task_repr += "\n]"
-        out = f"Stage(title={self.title}, tasks={task_repr})"
-        return out
-
     @property
     def task(self) -> Task:
         return self.tasks[self.selected]
@@ -211,3 +206,16 @@ def random_tasks() -> list[str]:
 
     count = random.randint(2, 5)
     return random.sample(tasks, k=min(count, len(tasks)))
+
+
+def dump_board(board: Board, level: int = 0) -> None:
+    print(f"{'    ' * level}Board: {board.title}")
+    level_stage = level + 1
+    level_task = level + 2
+    for stage in board.stages:
+        print(f"{'    ' * level_stage}Stage: {stage.title}")
+        level += 1
+        for task in stage.tasks:
+            print(f"{'    ' * level_task}Task: {task.name}")
+            if task.next_board is not None:
+                dump_board(task.next_board, level=level_task + 1)

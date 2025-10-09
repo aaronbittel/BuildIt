@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import curses
 import logging
+import os
+from pathlib import Path
 
 from src.tui.app import App
-from src.tui.board import Board, Stage, Task
 from src.tui.board_ui import board_widget
 from src.tui.components import (
     hover,
@@ -16,6 +17,7 @@ from src.tui.event import (
     AddStage,
     AddTask,
     Cancelled,
+    CreateNewBoard,
     EditStage,
     EditTask,
     Event,
@@ -23,10 +25,11 @@ from src.tui.event import (
     Quit,
     ShowHover,
     ShowStatusMessage,
-    UpdateBoard,
+    SwitchBoard,
 )
 from src.tui.layout import Layout
-from src.tui.storage import DATA_PATH, __load_state_imm, convert_imm_boards_to_boards
+from src.tui.sqlite import SqliteStorage
+from src.tui.storage import DummyStorage, Storage
 from src.tui.textfield import textfield
 from src.tui.ui import UIContext, UiState, widget_id
 from src.tui.utils import (
@@ -48,12 +51,7 @@ logging.basicConfig(
 )
 
 
-USE_PREFILLED_DATA = True
 FPS = 30
-
-
-if not USE_PREFILLED_DATA:
-    DATA_PATH.mkdir(exist_ok=True)
 
 
 def display_title(ctx: UIContext, title: str) -> None:
@@ -71,6 +69,9 @@ def display_title(ctx: UIContext, title: str) -> None:
             )
 
 
+DB_PATH = Path("./dbs")
+
+
 def main(stdscr: curses.window) -> None:
     curses.set_escdelay(25)
     curses.start_color()
@@ -83,31 +84,17 @@ def main(stdscr: curses.window) -> None:
     curses.init_pair(3, curses.COLOR_BLACK, curses.COLOR_CYAN)
     curses.curs_set(0)
 
-    if USE_PREFILLED_DATA:
-        stages = [
-            Stage(
-                "Backlog",
-                tasks=[Task("Todo 1"), Task("Todo 2")],
-            ),
-            Stage(
-                "In Progress", tasks=[Task("Task 1"), Task("Task 2"), Task("Task 3")]
-            ),
-            Stage(
-                "Done",
-                tasks=[
-                    Task(
-                        "A really really long Message to Display. A really really long Message to Display. A really really long Message to Display."
-                    ),
-                    Task("Done 1"),
-                    Task("Done 2"),
-                    Task("Done 3"),
-                ],
-            ),
-        ]
-        board = Board(title="Main Board", stages=stages)
+    path_str = os.getenv("BUILDIT_STORAGE")
+    storage: Storage | None = None
+    if path_str is None:
+        storage = DummyStorage()
     else:
-        imm_boards = __load_state_imm("25_10_02-11_39_32")
-        board = convert_imm_boards_to_boards(imm_boards)
+        path = DB_PATH / f"{path_str}.db"
+        path = path if path.exists() else DB_PATH / "dump.db"
+        logging.info("LOADING DB: %s", path)
+        storage = SqliteStorage(path)
+
+    board = storage.load_board()
 
     rows, cols = stdscr.getmaxyx()
 
@@ -115,7 +102,7 @@ def main(stdscr: curses.window) -> None:
         start=RGB(220, 220, 220), end=RGB.parse("#1D1F21"), length=FADE_LENGTH
     )
     uistate = UiState()
-    app = App(board)
+    app = App(board, storage=storage)
     ctx = UIContext(stdscr=stdscr, rows=rows, cols=cols, uistate=uistate)
 
     stdscr.refresh()
@@ -129,7 +116,10 @@ def main(stdscr: curses.window) -> None:
     while app.running:
         ctx.uistate.key = stdscr.getch()
         ctx.uistate.key_consumed = False
+        # NOTE: move events in UIContext?
         events: list[Event] = []
+
+        stdscr.erase()
 
         if ctx.uistate.active_id != textfield_id and ctx.uistate.key == ord("q"):
             events.append(Quit())
@@ -140,8 +130,6 @@ def main(stdscr: curses.window) -> None:
             logging.info(f"rows={ctx.rows} cols={ctx.cols}")
             ctx.uistate.key_consumed = True
             continue
-
-        stdscr.erase()
 
         with Layout(ctx.rows, ctx.cols) as layout:
             ctx.layout = layout
@@ -156,8 +144,10 @@ def main(stdscr: curses.window) -> None:
 
             if ctx.uistate.textfield_open:
                 width = clamp_width(ctx.cols, perc=0.75, min_width=25)
+                assert ctx.board_event is not None
                 ctx.uistate.textfield_str, textfield_event = textfield(
                     ctx,
+                    title=ctx.board_event.title,
                     id=textfield_id,
                     width=width,
                 )
@@ -209,8 +199,10 @@ def main(stdscr: curses.window) -> None:
                     app.handle_accept_textfield(ctx)
                 case Cancelled():
                     app.handle_cancel_textfield(ctx)
-                case UpdateBoard(new_board=new_board):
+                case CreateNewBoard(new_board=new_board):
                     app.board = new_board
+                case SwitchBoard(board=board):
+                    app.board = board
                 case ShowHover(position=cursor_pos, text=text_to_show):
                     ctx.uistate.cursor_pos = cursor_pos
                     ctx.uistate.hover_open = True
@@ -222,6 +214,7 @@ def main(stdscr: curses.window) -> None:
                     ctx.uistate.init_status_message(msg=msg, duration=duration)
                 case Quit():
                     app.running = False
+                    app.storage.save_board(app.board)
                 case e:
                     logging.error("Unmatched event: %s", e)
                     assert False, "unreachable"
