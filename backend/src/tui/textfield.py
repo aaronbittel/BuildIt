@@ -1,5 +1,6 @@
 import curses
 
+from src.tui.components import draw_border
 from src.tui.event import (
     Accepted,
     Cancelled,
@@ -59,28 +60,15 @@ def textfield(
 def _draw_textfield(
     stdscr: curses.window, rect: Rect, lines: list[str], title: str = ""
 ) -> None:
+    draw_border(stdscr, rect=rect, title=title, rounded=True, border_color=1)
     height, width, y, x = rect
-    stdscr.addstr(
-        y, x, f"{ROUNDED_TOPLEFT}{HORIZONTAL_BAR * (width - 2)}{ROUNDED_TOPRIGHT}"
-    )
-    stdscr.addstr(
-        y + height - 1,
-        x,
-        f"{ROUNDED_BOTTOMLEFT}{HORIZONTAL_BAR * (width - 2)}{ROUNDED_BOTTOMRIGHT}",
-    )
 
-    if title:
-        if len(title) > width:
-            title = title[: width - 1] + ELLIPSIS
-        x_offset = width // 2 - len(title) // 2
-        stdscr.addstr(y, x + x_offset, title)
-    for row in range(1, height - 1):
-        stdscr.addstr(y + row, x, VERTICAL_BAR)
-        stdscr.addstr(y + row, x + width - 1, VERTICAL_BAR)
+    for row, line in enumerate(lines):
+        stdscr.addstr(y + row + 1, x + 2, line)
 
-        for row, line in enumerate(lines):
-            stdscr.addstr(y + row + 1, x + 2, line)
+        x_offset = len(lines[-1]) if lines else 0
+        y_offset = len(lines) if lines else 1
+        stdscr.addstr(y + y_offset, x + x_offset + 2, "█")
 
-            x_offset = len(lines[-1]) if lines else 0
-            y_offset = len(lines) if lines else 1
-            stdscr.addstr(y + y_offset, x + x_offset + 2, "█")
+    if len(lines) == 0:
+        stdscr.addstr(y + 1, x + 2, "█")
