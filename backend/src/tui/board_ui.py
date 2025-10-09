@@ -143,14 +143,17 @@ def board_widget(
 def _board_view(stdscr: curses.window, layout: Layout, board: Board) -> list[Rect]:
     rects: list[Rect] = []
     for i, stage in enumerate(board.stages):
-        content = list(map(lambda t: t.name, stage.tasks))
-        rect = layout.next_rect(height=max(len(content) + 2, 5))
+        lines: list[str] = []
+        for task in stage.tasks:
+            line = f"⦿ {task.name}" if task.next_board is not None else task.name
+            lines.append(line)
+        rect = layout.next_rect(height=max(len(lines) + 2, 5))
         highlighted = i == board.selected
         box(
             stdscr,
             rect=rect,
             title=stage.title,
-            lines=content,
+            lines=lines,
             selected=board.stage.selected,
             highlighted=highlighted,
             rounded=False,
