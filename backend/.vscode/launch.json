@@ -12,7 +12,8 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "env": {
-                "PYTHONPATH": "${workspaceFolder}/src"
+                "PYTHONPATH": "${workspaceFolder}/src",
+                "BUILDIT_STORAGE": "dump",
             },
             "cwd": "${workspaceFolder}"
         },

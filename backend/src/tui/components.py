@@ -148,6 +148,8 @@ def hover(ctx: UIContext, width: int) -> Event | None:
         popup_y = ctx.uistate.cursor_pos.y + 1
 
     rect = Rect(height=popup_height, width=popup_width, y=popup_y, x=popup_x)
+    # NOTE: box does not overwrite the whole rect, but only where is writes characters
+    # to, thats why the rect is first cleared before written to
     clear_rect(ctx.stdscr, rect)
     box(ctx.stdscr, rect=rect, lines=lines, rounded=True)
 

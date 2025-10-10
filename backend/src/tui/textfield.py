@@ -9,14 +9,7 @@ from src.tui.event import (
 from src.tui.layout import Rect
 from src.tui.ui import Id, UIContext
 from src.tui.utils import (
-    ELLIPSIS,
-    HORIZONTAL_BAR,
     KEY_ESC,
-    ROUNDED_BOTTOMLEFT,
-    ROUNDED_BOTTOMRIGHT,
-    ROUNDED_TOPLEFT,
-    ROUNDED_TOPRIGHT,
-    VERTICAL_BAR,
     split_text_into_lines,
 )
 

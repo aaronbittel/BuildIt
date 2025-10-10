@@ -13,8 +13,8 @@ class Rect(NamedTuple):
 
 
 class Point(NamedTuple):
-    y: int
-    x: int
+    y: int = 0
+    x: int = 0
 
 
 @dataclass

@@ -142,8 +142,12 @@ def board_widget(
             board = board.goto_prev_board()
             event = SwitchBoard(board=board)
         elif key == ord("1"):
-            event = ShowStatusMessage(text=str(board.id), duration=4.0)
+            event = ShowStatusMessage(
+                text=f"rows={ctx.rows} cols={ctx.cols}", duration=4.0
+            )
         elif key == ord("2"):
+            event = ShowStatusMessage(text=str(board.id), duration=4.0)
+        elif key == ord("3"):
             event = ShowStatusMessage(
                 text="This is a short status message", duration=2.0
             )
