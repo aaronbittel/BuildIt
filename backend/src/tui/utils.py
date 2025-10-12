@@ -96,12 +96,18 @@ def hide_cursor(func):
     return wrapper_func
 
 
-def split_text_into_lines(text: str, width: int) -> list[str]:
+def split_text_into_lines(text: str, width: int) -> tuple[list[str], int]:
     assert width > 0
 
+    skipped = 0
     lines: list[str] = []
     cur = 0
     while cur + width < len(text):
+        if text[cur + width] == " ":
+            lines.append(text[cur : cur + width])
+            cur += width + 1
+            skipped += 1
+            continue
         last_space_idx = text[cur : cur + width].rfind(" ")
         if last_space_idx == -1:
             lines.append(text[cur : cur + width])
@@ -113,7 +119,8 @@ def split_text_into_lines(text: str, width: int) -> list[str]:
             cur += last_space_idx + 1
     if cur < len(text):
         lines.append(text[cur:])
-    return lines
+
+    return lines, skipped
 
 
 def truncate(s: str, max_length: int, suffix: str = ELLIPSIS) -> str:

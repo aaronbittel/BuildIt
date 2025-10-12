@@ -52,6 +52,7 @@ class UiState:
 
     textfield_open: bool = False
     textfield_str: str = ""
+    textfield_cursor_index: int | None = None
 
     status_message: StatusMessage | None = None
 

@@ -53,9 +53,11 @@ class App:
         ctx.uistate.textfield_str = ""
         ctx.uistate.textfield_open = False
         ctx.uistate.active_id = None
+        ctx.uistate.textfield_cursor_index = None
 
     def handle_cancel_textfield(self, ctx: UIContext) -> None:
         ctx.uistate.textfield_str = ""
         ctx.uistate.textfield_open = False
         ctx.board_event = None
         ctx.uistate.active_id = None
+        ctx.uistate.textfield_cursor_index = None

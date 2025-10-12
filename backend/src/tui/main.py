@@ -27,7 +27,7 @@ from src.tui.event import (
     ShowStatusMessage,
     SwitchBoard,
 )
-from src.tui.layout import Layout
+from src.tui.layout import Layout, Rect
 from src.tui.sqlite import SqliteStorage
 from src.tui.storage import DummyStorage, Storage
 from src.tui.textfield import textfield
@@ -37,6 +37,7 @@ from src.tui.utils import (
     RGB,
     clamp_width,
     init_fade_out_palette,
+    split_text_into_lines,
 )
 
 # TODO: Manuall switching between vertical and horizontal layout for board
@@ -145,13 +146,31 @@ def main(stdscr: curses.window) -> None:
                 events.append(board_event)
 
             if ctx.uistate.textfield_open:
-                width = clamp_width(ctx.cols, perc=0.75, min_width=25)
+                # width = clamp_width(ctx.cols, perc=0.75, min_width=25)
+                width = clamp_width(ctx.cols, perc=0.0, min_width=9)
+                lines, _ = split_text_into_lines(
+                    text=ctx.uistate.textfield_str, width=width - 4
+                )
+                height = max(1, len(lines)) + 2
                 assert ctx.board_event is not None
+                # FIXME: centering a widget using screen_padding is inconsistent
+                #        create an own layout for this?
+                # with ctx.layout.horizontal(
+                #     columns=1,
+                #     child_min_width=9,
+                #     screen_padding=ctx.layout.cols // 2 - width // 2,
+                # ) as ok:
+                rect = Rect(
+                    height=height,
+                    width=width,
+                    y=ctx.rows // 2 - height // 2,
+                    x=ctx.cols // 2 - width // 2,
+                )
                 ctx.uistate.textfield_str, textfield_event = textfield(
                     ctx,
+                    rect=rect,
                     title=ctx.board_event.title,
                     id=textfield_id,
-                    width=width,
                 )
                 if textfield_event:
                     events.append(textfield_event)
