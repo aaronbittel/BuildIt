@@ -174,9 +174,7 @@ class SqliteStorage(Storage):
                     board.selected,
                 ),
             )
-            stages = [
-                (str(stage.id), stage.title, stage.selected) for stage in board.stages
-            ]
+            stages = [(str(stage.id), stage.title, stage.selected) for stage in board]
             conn.executemany(
                 "INSERT INTO stage (id, title, selected) VALUES (?, ?, ?)", stages
             )
@@ -187,16 +185,15 @@ class SqliteStorage(Storage):
                     task.name,
                     str(task.next_board.id) if task.next_board is not None else None,
                 )
-                for stage in board.stages
-                for task in stage.tasks
+                for stage in board
+                for task in stage
             ]
             conn.executemany(
                 "INSERT INTO task (id, name, next_board_id) VALUES (?, ?, ?)", tasks
             )
 
             board_stage_links = [
-                (str(board.id), str(stage.id), i)
-                for i, stage in enumerate(board.stages)
+                (str(board.id), str(stage.id), i) for i, stage in enumerate(board)
             ]
             conn.executemany(
                 "INSERT INTO board_stage_link (board_id, stage_id, position) "
@@ -206,8 +203,8 @@ class SqliteStorage(Storage):
 
             stage_task_links = [
                 (str(stage.id), str(task.id), i)
-                for stage in board.stages
-                for i, task in enumerate(stage.tasks)
+                for stage in board
+                for i, task in enumerate(stage)
             ]
             conn.executemany(
                 "INSERT INTO stage_task_link (stage_id, task_id, position) "
@@ -215,8 +212,8 @@ class SqliteStorage(Storage):
                 stage_task_links,
             )
 
-            for stage in board.stages:
-                for task in stage.tasks:
+            for stage in board:
+                for task in stage:
                     if task.next_board is not None:
                         self._add_board(task.next_board)
 

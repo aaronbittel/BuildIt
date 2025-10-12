@@ -41,7 +41,7 @@ class App:
             self.board.stage.task.name = ctx.uistate.textfield_str
         elif isinstance(ctx.board_event, AddStage):
             self.board.add_stage(Stage(title=ctx.uistate.textfield_str))
-            self.board.selected = len(self.board.stages) - 1
+            self.board.selected = len(self.board) - 1
         elif isinstance(ctx.board_event, EditStage):
             self.board.stage.title = ctx.uistate.textfield_str
         else:

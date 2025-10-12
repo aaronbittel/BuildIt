@@ -14,7 +14,7 @@ from src.tui.event import (
     SwitchBoard,
 )
 from src.tui.layout import Layout, Point, Rect
-from src.tui.ui import Id, StatusMessage, UIContext
+from src.tui.ui import Id, UIContext
 from src.tui.utils import (
     KEY_ESC,
 )
@@ -72,7 +72,7 @@ def board_widget(
                 event = AddTask()
         elif key == ord("e"):
             if len(board) > 0:
-                if len(board.stage.tasks) > 0:
+                if len(board.stage) > 0:
                     event = EditTask(prefill=board.stage.task.name)
                 else:
                     event = AddTask()
@@ -98,7 +98,7 @@ def board_widget(
                 )
                 # fmt: on
         elif key == ord("y"):
-            if len(board.stage.tasks) > 0:
+            if len(board.stage) > 0:
                 import subprocess
 
                 subprocess.run(
@@ -123,6 +123,7 @@ def board_widget(
         elif key == ord("X"):
             # TODO: Add confirmation
             if len(board) > 0:
+                # TODO: probably just be board.pop() ?
                 board.stages.pop(board.selected)
                 if board.selected >= len(board):
                     board.selected -= 1
@@ -156,11 +157,8 @@ def board_widget(
 
 def _board_view(stdscr: curses.window, layout: Layout, board: Board) -> list[Rect]:
     rects: list[Rect] = []
-    for i, stage in enumerate(board.stages):
-        lines: list[str] = []
-        for task in stage.tasks:
-            line = f"⦿ {task.name}" if task.next_board is not None else task.name
-            lines.append(line)
+    for i, stage in enumerate(board):
+        lines = [task.name for task in stage]
         rect = layout.next_rect(height=max(len(lines) + 2, 5))
         highlighted = i == board.selected
         box(
@@ -171,6 +169,9 @@ def _board_view(stdscr: curses.window, layout: Layout, board: Board) -> list[Rec
             selected=board.stage.selected,
             highlighted=highlighted,
             rounded=False,
+            border_row_accents=[
+                j for j, task in enumerate(stage) if task.next_board is not None
+            ],
         )
         rects.append(rect)
     return rects

@@ -143,7 +143,7 @@ def assert_board_in_db(store: SqliteStorage, board: Board) -> None:
     assert selected == board.selected
 
     # --- Check the stages of the board ---
-    for i, stage in enumerate(board.stages):
+    for i, stage in enumerate(board):
         stage_title, stage_selected = store.conn.execute(
             "SELECT title, selected FROM stage WHERE id = ?", (str(stage.id),)
         ).fetchone()

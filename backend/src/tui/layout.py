@@ -12,7 +12,8 @@ class Rect(NamedTuple):
     x: int
 
 
-class Point(NamedTuple):
+@dataclass
+class Point:
     y: int = 0
     x: int = 0
 

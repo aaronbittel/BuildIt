@@ -20,6 +20,7 @@ def draw_border(
     rect: Rect,
     title: str,
     border_color: int = 0,
+    border_row_accents: list[int] | None = None,
     *,
     rounded: bool,
 ) -> None:
@@ -42,8 +43,10 @@ def draw_border(
 
     for row in range(1, height - 1):
         with suppress(_curses.error):
-            stdscr.addch(y + row, x, "│", color)
-            stdscr.addch(y + row, x + width - 1, "│", color)
+            l_ch = "┝" if border_row_accents and row - 1 in border_row_accents else "│"
+            r_ch = "┥" if border_row_accents and row - 1 in border_row_accents else "│"
+            stdscr.addch(y + row, x, l_ch, color)
+            stdscr.addch(y + row, x + width - 1, r_ch, color)
 
     stdscr.addch(y + height - 1, x, lower_left_corner, color)
     stdscr.addstr(y + height - 1, x + 1, "─" * (width - 2), color)
@@ -62,6 +65,7 @@ def box(
     highlighted: bool = False,
     rounded: bool = False,
     squash: bool = True,
+    **kwargs,
 ):
     draw_border(
         stdscr=stdscr,
@@ -69,6 +73,7 @@ def box(
         title=title,
         border_color=1 if highlighted else 0,
         rounded=rounded,
+        **kwargs,
     )
 
     _, width, y, x = rect

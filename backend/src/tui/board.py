@@ -22,7 +22,7 @@ class Board:
 
     def __fix_board_linking(self) -> None:
         for stage in self.stages:
-            for task in stage.tasks:
+            for task in stage:
                 if task.next_board is not None:
                     task.next_board.prev_board = self
                     task.next_board.__fix_board_linking()
@@ -107,12 +107,15 @@ class Board:
         if self.id == id:
             return self
         for stage in self.stages:
-            for task in stage.tasks:
+            for task in stage:
                 if task.next_board is not None:
                     # FIXME: improve this
                     with suppress(ValueError):
                         return task.next_board.find_board(id)
         raise ValueError(f"no board with {id=} found")
+
+    def __iter__(self) -> Iterator[Stage]:
+        return iter(self.stages)
 
     def __len__(self) -> int:
         return len(self.stages)
@@ -212,10 +215,10 @@ def dump_board(board: Board, level: int = 0) -> None:
     print(f"{'    ' * level}Board: {board.title}")
     level_stage = level + 1
     level_task = level + 2
-    for stage in board.stages:
+    for stage in board:
         print(f"{'    ' * level_stage}Stage: {stage.title}")
         level += 1
-        for task in stage.tasks:
+        for task in stage:
             print(f"{'    ' * level_task}Task: {task.name}")
             if task.next_board is not None:
                 dump_board(task.next_board, level=level_task + 1)
