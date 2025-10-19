@@ -45,7 +45,7 @@ from src.tui.utils import (
 
 logging.basicConfig(
     filename="app.log",
-    level=logging.INFO,
+    level=logging.WARNING,
     filemode="w",
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
@@ -146,8 +146,8 @@ def main(stdscr: curses.window) -> None:
                 events.append(board_event)
 
             if ctx.uistate.textfield_open:
-                # width = clamp_width(ctx.cols, perc=0.75, min_width=25)
-                width = clamp_width(ctx.cols, perc=0.0, min_width=9)
+                width = clamp_width(ctx.cols, perc=0.75, min_width=25)
+                # width = clamp_width(ctx.cols, perc=0.0, min_width=9)
                 lines, _ = split_text_into_lines(
                     text=ctx.uistate.textfield_str, width=width - 4
                 )

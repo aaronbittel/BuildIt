@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from dataclasses import dataclass
 from fractions import Fraction
+import logging
 from types import TracebackType
 from typing import Generator, Literal, NamedTuple, Self
 
@@ -86,6 +87,7 @@ class Layout:
 
         total_width = self.cols - (screen_padding * 2 + (columns - 1) * spacing)
         frac_width_per_child = Fraction(total_width, columns)
+        logging.info(f"{frac_width_per_child=}")
 
         if frac_width_per_child < child_min_width:
             return False

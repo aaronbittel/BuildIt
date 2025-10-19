@@ -55,13 +55,11 @@ class Board:
 
     def goto_next_board(
         self,
-        stage_idx: int,
-        task_idx: int,
         *,
         # FIXME: Remove me later
         prefilled: bool = False,
     ) -> Board:
-        task = self.stages[stage_idx].tasks[task_idx]
+        task = self.stage.task
         if task.next_board is not None:
             return task.next_board
 
@@ -126,13 +124,9 @@ class Board:
 
 
 @dataclass
-class Task:
-    name: str
-    id: UUID = field(default_factory=uuid4)
-    next_board: Board | None = None
-
-    def __len__(self) -> int:
-        return len(self.name)
+class BoardView:
+    board: Board
+    filter_str: str | None = None
 
 
 @dataclass
@@ -186,6 +180,16 @@ class Stage:
     @property
     def task(self) -> Task:
         return self.tasks[self.selected]
+
+
+@dataclass
+class Task:
+    name: str
+    id: UUID = field(default_factory=uuid4)
+    next_board: Board | None = None
+
+    def __len__(self) -> int:
+        return len(self.name)
 
 
 def random_tasks() -> list[str]:

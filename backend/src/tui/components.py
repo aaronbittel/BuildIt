@@ -141,7 +141,7 @@ def text(
 def hover(ctx: UIContext, width: int) -> Event | None:
     assert ctx.uistate.cursor_pos is not None
 
-    lines = split_text_into_lines(text=ctx.uistate.hover_text, width=width)
+    lines, _ = split_text_into_lines(text=ctx.uistate.hover_text, width=width)
     popup_width = max(map(len, lines)) + 4
     popup_height = len(lines) + 2
     popup_y = ctx.uistate.cursor_pos.y - len(lines) - 2

@@ -133,11 +133,7 @@ def board_widget(
             board.prev()
         elif key == ord("\n"):
             if len(board.stage) > 0:
-                board = board.goto_next_board(
-                    stage_idx=board.selected,
-                    task_idx=board.stage.selected,
-                    prefilled=False,
-                )
+                board = board.goto_next_board(prefilled=False)
                 event = CreateNewBoard(new_board=board)
         elif key == KEY_ESC:
             board = board.goto_prev_board()

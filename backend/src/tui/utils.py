@@ -64,11 +64,10 @@ def _color_to_curses(rgb: RGB) -> tuple[int, int, int]:
     return int(rgb.r * factor), int(rgb.g * factor), int(rgb.b * factor)
 
 
-def clear_rect(win: curses.window, rect: Rect, attr: int = 0):
-    """Fill a rectangular area with spaces."""
+def clear_rect(win: curses.window, rect: Rect):
     blank = " " * rect.width
     for i in range(rect.height):
-        win.addstr(rect.y + i, rect.x, blank, attr)
+        win.addstr(rect.y + i, rect.x, blank)
 
 
 def clamp_width(cols: int, perc: float, min_width: int) -> int:

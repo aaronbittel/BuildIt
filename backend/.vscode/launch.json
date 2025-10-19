@@ -30,5 +30,18 @@
             },
             "cwd": "${workspaceFolder}"
         },
+        {
+            "name": "ImDearGui",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/impl/unknown.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src",
+                "BUILDIT_STORAGE": "db",
+            },
+            "cwd": "${workspaceFolder}"
+        },
     ]
 }
